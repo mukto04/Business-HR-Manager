@@ -1,0 +1,234 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-1.1.x", "debian-openssl-3.0.x", "rhel-openssl-1.0.x", "rhel-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model Employee {
+  id              String            @id @default(auto()) @map("_id") @db.ObjectId
+  employeeCode    String            @unique
+  fingerprintId   String?           
+  name            String
+  designation     String
+  department      String?
+  email           String?           @unique
+  phone           String?
+  joiningDate     DateTime
+  dateOfBirth     DateTime
+  status          String            @default("ACTIVE")
+  bloodGroup      String?
+  guardianName    String?
+  guardianRelation String?
+  guardianPhone   String?
+  nidNumber       String?
+  educationStatus String?
+  password        String            @default("appdevs123456")
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  leaveBalances   LeaveBalance[]
+  loans           Loan[]
+  advances        AdvanceSalary[]
+  salaryStructure SalaryStructure?
+  monthlySalaries MonthlySalary[]
+  attendances     Attendance[]
+  attendanceRequests AttendanceRequest[]
+  
+  @@index([fingerprintId])
+}
+
+model Holiday {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  name       String
+  date       DateTime
+  totalDays  Int      @default(1)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model LeaveBalance {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  employeeId String   @db.ObjectId
+  year       Int
+  totalLeave Int      @default(0)
+  dueLeave   Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, year])
+  @@index([employeeId])
+}
+
+model Loan {
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  employeeId        String   @db.ObjectId
+  loanAmount        Float
+  paidAmount        Float
+  dueAmount         Float
+  installmentAmount Float    @default(0)
+  startMonth        Int?
+  startYear         Int?
+  note              String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  employee          Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+}
+
+model AdvanceSalary {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  employeeId  String   @db.ObjectId
+  amount      Float
+  month       Int
+  year        Int
+  isDeducted  Boolean  @default(false)
+  note        String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+}
+
+model SalaryStructure {
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  employeeId       String   @unique @db.ObjectId
+  totalSalary      Float
+  basicSalary      Float
+  hra              Float
+  medicalAllowance Float
+  travelAllowance  Float
+  others           Float
+  festivalBonus    Float
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  employee         Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+}
+
+model MonthlySalary {
+  id                  String   @id @default(auto()) @map("_id") @db.ObjectId
+  employeeId          String   @db.ObjectId
+  month               Int
+  year                Int
+  totalSalary         Float
+  workingDays         Float    @default(30)
+  workingDaySalary    Float
+  advanceSalaryAmount Float    @default(0)
+  loanAdjustAmount    Float    @default(0)
+  leaveDeductionAmount Float   @default(0)
+  payableSalary       Float    @default(0)
+  basicSalary         Float
+  hra                 Float
+  medicalAllowance    Float
+  travelAllowance     Float
+  others              Float
+  festivalBonus       Float
+  totalSalaryPaid     Float
+  isPaid              Boolean  @default(false)
+  isHeld              Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  employee            Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, month, year])
+  @@index([employeeId])
+}
+
+model OfficeCost {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  date            DateTime
+  month           Int
+  year            Int
+  day             Int
+  payAmount       Float    @default(0)
+  bazarCost       Float    @default(0)
+  details         String?
+  extraCost       Float    @default(0)
+  extraDetail     String?
+  deposit         Float    @default(0)
+  recurringCost   Float    @default(0)
+  recurringDetail String?
+  capitalCost     Float    @default(0)
+  capitalDetail   String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([date])
+  @@unique([month, year, day])
+}
+
+model Attendance {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  employeeId  String   @db.ObjectId
+  date        DateTime
+  checkIn     DateTime?
+  checkOut    DateTime?
+  status      String   @default("PRESENT")
+  isManual    Boolean  @default(false)
+  note        String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, date])
+  @@index([date])
+}
+
+model AttendanceRequest {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  employeeId  String   @db.ObjectId
+  date        DateTime
+  checkIn     DateTime?
+  checkOut    DateTime?
+  reason      String
+  status      String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  hrNote      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+  @@index([status])
+}
+
+model Tenant {
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  companyCode    String    @unique
+  companyName    String
+  dbUrl          String
+  status         String    @default("ACTIVE") // ACTIVE, FROZEN
+  adminUsername  String
+  adminPassword  String
+  subscriptionStart DateTime?
+  subscriptionEnd   DateTime?
+  createdAt      DateTime  @default(now())
+}
+
+model AttendanceDevice {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  deviceName  String
+  ipAddress   String
+  port        Int      @default(4370)
+  status      String   @default("DISCONNECTED") // ACTIVE, DISCONNECTED
+  lastSync    DateTime?
+  lastSeen    DateTime?
+  description String?
+  apiKey      String?  @unique
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model TenantSettings {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  defaultInTime  String   @default("09:00 AM")
+  defaultOutTime String   @default("06:00 PM")
+  avgRequestTime String   @default("09:00 AM")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
