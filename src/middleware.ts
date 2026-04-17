@@ -9,7 +9,8 @@ async function verifyToken(token: string, secret: string) {
     const encodedSecret = new TextEncoder().encode(secret);
     const { payload } = await jose.jwtVerify(token, encodedSecret);
     return payload;
-  } catch {
+  } catch (err: any) {
+    console.error("JWT Verify Error:", err.message);
     return null;
   }
 }
@@ -42,7 +43,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const secret = process.env.SESSION_SECRET || "fallback-secret";
+  const secret = process.env.SESSION_SECRET || "hr-manager-super-secret-123-fallback";
 
   // 3. Super Admin Check (Page & API)
   if (pathname.startsWith("/super-admin") || pathname.startsWith("/api/super-admin")) {
@@ -80,6 +81,7 @@ export async function middleware(request: NextRequest) {
   const payload = hrToken ? await verifyToken(hrToken, secret) : null;
 
   if (!payload || payload.role !== "HR_ADMIN") {
+    console.warn(`Access denied to ${pathname}. Payload:`, !!payload, "Role:", payload?.role);
     const loginUrl = new URL("/login", request.url);
     return NextResponse.redirect(loginUrl);
   }

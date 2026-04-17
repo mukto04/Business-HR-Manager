@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 3. Create Session Token (JWT) with Dynamic DB URL
-    const secretKey = process.env.SESSION_SECRET || "fallback-secret";
+    const secretKey = process.env.SESSION_SECRET || "hr-manager-super-secret-123-fallback";
     const secret = new TextEncoder().encode(secretKey);
     
     console.log(`Generating token for ${tenant.companyName} (${tenant.companyCode})`);
