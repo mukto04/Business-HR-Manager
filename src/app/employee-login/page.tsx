@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Lock, User, Building2 } from "lucide-react";
+import { Lock, User, Building2, Loader2 } from "lucide-react";
 
-export default function EmployeeLoginPage() {
+function EmployeeLoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const slugFromUrl = searchParams.get("slug");
@@ -181,3 +181,16 @@ export default function EmployeeLoginPage() {
     </div>
   );
 }
+
+export default function EmployeeLoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-slate-900">
+        <Loader2 className="h-8 w-8 animate-spin text-indigo-500" />
+      </div>
+    }>
+      <EmployeeLoginContent />
+    </Suspense>
+  );
+}
+
