@@ -45,7 +45,7 @@ export default function SuperAdminLoginPage() {
         </div>
         
         <div className="space-y-2">
-          <h1 className="text-3xl font-extrabold text-white tracking-tight">SaaS Master Access</h1>
+          <h1 className="text-3xl font-extrabold text-white tracking-tight">AppDevs HR Master Access</h1>
           <p className="text-slate-500 text-sm">Restricted to AppDevs Administrators only.</p>
         </div>
 

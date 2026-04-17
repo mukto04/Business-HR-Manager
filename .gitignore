@@ -4,7 +4,7 @@ dist
 coverage
 *.log
 .vercel
-.env
+
 *.db
 *.zip
 *.tar.gz
