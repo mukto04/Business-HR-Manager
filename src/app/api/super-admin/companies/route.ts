@@ -15,9 +15,9 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { companyCode, companyName, dbUrl, adminUsername, adminPassword, subscriptionDays } = body;
+    const { slug, companyName, dbUrl, adminUsername, adminPassword, subscriptionDays } = body;
 
-    if (!companyCode || !companyName || !dbUrl || !adminUsername || !adminPassword) {
+    if (!slug || !companyName || !dbUrl || !adminUsername || !adminPassword) {
       return NextResponse.json({ message: "Missing required fields" }, { status: 400 });
     }
 
@@ -29,9 +29,9 @@ export async function POST(request: NextRequest) {
 
     const tenant = await masterPrisma.tenant.create({
       data: {
-        companyCode: companyCode.toUpperCase(),
+        slug: slug.toLowerCase().trim().replace(/\s+/g, "-"),
         companyName,
-        dbUrl,
+        dbUrl: dbUrl.trim(),
         adminUsername,
         adminPassword,
         subscriptionStart,
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error("Tenant Creation Error:", error);
     return NextResponse.json({ 
-      message: `Failed to create tenant. ${error.message || "Unknown error"}. Maybe company code exists?` 
+      message: `Failed to create tenant. ${error.message || "Unknown error"}. Maybe the URL slug already exists?` 
     }, { status: 500 });
   }
 }

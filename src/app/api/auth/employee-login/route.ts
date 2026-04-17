@@ -8,19 +8,19 @@ const COOKIE_NAME = "employee_session";
 export async function POST(request: NextRequest) {
   let tenantClient: PrismaClient | null = null;
   try {
-    const { companyCode, employeeCode, password } = await request.json();
+    const { slug, employeeCode, password } = await request.json();
 
-    if (!companyCode || !employeeCode || !password) {
-      return NextResponse.json({ message: "Company code, employee code and password are required." }, { status: 400 });
+    if (!slug || !employeeCode || !password) {
+      return NextResponse.json({ message: "Login URL, employee code and password are required." }, { status: 400 });
     }
 
     // 1. Resolve Tenant from Master DB
     const tenant = await masterPrisma.tenant.findUnique({
-      where: { companyCode: companyCode.toUpperCase() }
+      where: { slug: slug.toLowerCase() }
     });
 
     if (!tenant) {
-      return NextResponse.json({ message: "Invalid company code." }, { status: 404 });
+      return NextResponse.json({ message: "Invalid Login URL or Company." }, { status: 404 });
     }
 
     if (tenant.status === "FROZEN") {
@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
     
     const token = await new jose.SignJWT({
       employeeId: employee.id,
-      companyCode: tenant.companyCode,
+      slug: tenant.slug,
       companyName: tenant.companyName,
       dbUrl: tenant.dbUrl,
       role: "EMPLOYEE"

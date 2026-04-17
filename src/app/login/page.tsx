@@ -1,16 +1,44 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { Lock, User, Database } from "lucide-react";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Lock, User, Database, Building2 } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [companyCode, setCompanyCode] = useState("");
+  const searchParams = useSearchParams();
+  const slugFromUrl = searchParams.get("slug");
+  
+  const [slug, setSlug] = useState(slugFromUrl || "");
+  const [companyName, setCompanyName] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [resolving, setResolving] = useState(!!slugFromUrl);
+
+  // Resolution effect for branded URLs
+  useEffect(() => {
+    if (slugFromUrl) {
+      resolveBranding(slugFromUrl);
+    }
+  }, [slugFromUrl]);
+
+  async function resolveBranding(code: string) {
+    try {
+      setResolving(true);
+      const res = await fetch(`/api/tenant/resolve/${code.toLowerCase()}`);
+      if (res.ok) {
+        const data = await res.json();
+        setCompanyName(data.companyName);
+        setSlug(data.slug);
+      }
+    } catch (err) {
+      console.error("Branding resolution failed", err);
+    } finally {
+      setResolving(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -18,28 +46,23 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      console.log("Attempting login for:", { companyCode, username });
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ companyCode, username, password }),
+        body: JSON.stringify({ slug, username, password }),
       });
 
-      console.log("API Response status:", res.status);
       const data = await res.json();
 
       if (!res.ok) {
-        console.error("Login failed:", data);
-        setError(data.message || data.detail || "Invalid credentials.");
+        setError(data.message || "Invalid credentials.");
         return;
       }
 
-      console.log("Login successful, redirecting...");
       router.push("/");
       router.refresh();
     } catch (err: any) {
-      console.error("Fetch error:", err);
-      setError("Network error or server is down. Please try again.");
+      setError("Network error. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -47,42 +70,54 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4">
-      {/* Background grid decoration */}
       <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:64px_64px] pointer-events-none" />
 
-      <div className="relative w-full max-w-md">
+      <div className="relative w-full max-w-md text-center">
         {/* Logo / Brand */}
-        <div className="text-center mb-8">
+        <div className="mb-8">
           <div className="inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20 mb-4">
             <Lock className="h-8 w-8 text-white" />
           </div>
-          <p className="text-slate-400 text-sm uppercase tracking-[0.3em] font-medium mb-1">AppDevs</p>
-          <h1 className="text-2xl font-bold text-white">HR Management</h1>
-          <p className="text-slate-400 text-sm mt-1">Sign in to access your dashboard</p>
+          {resolving ? (
+            <div className="animate-pulse space-y-2">
+              <div className="h-4 bg-white/10 w-24 mx-auto rounded"></div>
+              <div className="h-8 bg-white/10 w-48 mx-auto rounded"></div>
+            </div>
+          ) : (
+            <>
+              <p className="text-slate-400 text-sm uppercase tracking-[0.3em] font-medium mb-1">
+                {companyName || "AppDevs"}
+              </p>
+              <h1 className="text-2xl font-bold text-white">HR Management</h1>
+              <p className="text-slate-400 text-sm mt-1">Sign in to access your dashboard</p>
+            </>
+          )}
         </div>
 
         {/* Card */}
-        <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl">
+        <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl text-left">
           <form onSubmit={handleSubmit} autoComplete="on" className="space-y-5">
-            {/* Company Code */}
-            <div>
-              <label htmlFor="companyCode" className="block text-sm font-medium text-slate-300 mb-2">
-                Company Code
-              </label>
-              <div className="relative">
-                <Database className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
-                <input
-                  id="companyCode"
-                  name="companyCode"
-                  type="text"
-                  required
-                  value={companyCode}
-                  onChange={e => setCompanyCode(e.target.value.toUpperCase())}
-                  placeholder="Enter company code"
-                  className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-slate-500 outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-                />
+            {/* Slug Field - Only shown if not in branded mode */}
+            {!slugFromUrl && (
+              <div>
+                <label htmlFor="slug" className="block text-sm font-medium text-slate-300 mb-2">
+                  Company Login URL Slug
+                </label>
+                <div className="relative">
+                  <Database className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                  <input
+                    id="slug"
+                    name="slug"
+                    type="text"
+                    required
+                    value={slug}
+                    onChange={e => setSlug(e.target.value.toLowerCase())}
+                    placeholder="E.g. appdevs"
+                    className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-slate-500 outline-none focus:ring-2 focus:ring-blue-500 transition"
+                  />
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Username */}
             <div>
@@ -100,7 +135,7 @@ export default function LoginPage() {
                   value={username}
                   onChange={e => setUsername(e.target.value)}
                   placeholder="Enter username"
-                  className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-slate-500 outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                  className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-slate-500 outline-none focus:ring-2 focus:ring-blue-500 transition"
                 />
               </div>
             </div>
@@ -121,22 +156,20 @@ export default function LoginPage() {
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   placeholder="Enter password"
-                  className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-slate-500 outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                  className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-slate-500 outline-none focus:ring-2 focus:ring-blue-500 transition"
                 />
               </div>
             </div>
 
-            {/* Error */}
             {error && (
               <div className="rounded-xl bg-red-500/20 border border-red-500/30 px-4 py-3 text-sm text-red-300">
                 {error}
               </div>
             )}
 
-            {/* Submit */}
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || resolving}
               className="w-full py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 disabled:cursor-not-allowed text-white font-semibold text-sm transition-colors shadow-lg shadow-blue-500/20"
             >
               {loading ? "Signing in…" : "Sign In"}

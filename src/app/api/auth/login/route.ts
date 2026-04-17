@@ -7,10 +7,10 @@ const SESSION_SECRET = "appdevs-hr-portal-secure-vault-998877";
 
 export async function POST(request: NextRequest) {
   try {
-    const { companyCode, username, password } = await request.json();
+    const { slug, username, password } = await request.json();
 
-    if (!companyCode || !username || !password) {
-      return NextResponse.json({ message: "Company code, username and password are required." }, { status: 400 });
+    if (!slug || !username || !password) {
+      return NextResponse.json({ message: "Company identifier, username and password are required." }, { status: 400 });
     }
 
     // 1. Initial Checks
@@ -20,12 +20,12 @@ export async function POST(request: NextRequest) {
     }
 
     const tenant = await masterPrisma.tenant.findUnique({
-      where: { companyCode: companyCode.toUpperCase() }
+      where: { slug: slug.toLowerCase() }
     });
 
     if (!tenant) {
-      console.warn(`Login attempt for non-existent company: ${companyCode}`);
-      return NextResponse.json({ message: `Invalid company code: ${companyCode}` }, { status: 404 });
+      console.warn(`Login attempt for non-existent company: ${slug}`);
+      return NextResponse.json({ message: `Invalid login URL or company: ${slug}` }, { status: 404 });
     }
 
     if (tenant.status === "FROZEN") {
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
 
     // 2. Tenant Credential Check
     if (username !== tenant.adminUsername || password !== tenant.adminPassword) {
-        console.warn(`Invalid credentials for company ${companyCode}: User ${username}`);
+        console.warn(`Invalid credentials for company ${slug}: User ${username}`);
         return NextResponse.json({ message: "Invalid username or password for this company." }, { status: 401 });
     }
 
@@ -42,10 +42,10 @@ export async function POST(request: NextRequest) {
     const secretKey = process.env.SESSION_SECRET || SESSION_SECRET;
     const secret = new TextEncoder().encode(secretKey);
     
-    console.log(`Generating token for ${tenant.companyName} (${tenant.companyCode})`);
+    console.log(`Generating token for ${tenant.companyName} (${tenant.slug})`);
 
     const token = await new jose.SignJWT({
-      companyCode: tenant.companyCode,
+      slug: tenant.slug,
       companyName: tenant.companyName,
       dbUrl: tenant.dbUrl,
       role: "HR_ADMIN"
@@ -57,7 +57,8 @@ export async function POST(request: NextRequest) {
 
     const response = NextResponse.json({ 
       message: "Login successful",
-      companyName: tenant.companyName 
+      companyName: tenant.companyName,
+      slug: tenant.slug
     });
 
     // 4. Set Session Cookie

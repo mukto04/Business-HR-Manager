@@ -20,7 +20,7 @@ import {
 
 interface Tenant {
   id: string;
-  companyCode: string;
+  slug: string;
   companyName: string;
   dbUrl: string;
   status: string;
@@ -40,7 +40,7 @@ export default function TenantManagementPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [formData, setFormData] = useState({
-    companyCode: "",
+    slug: "",
     companyName: "",
     dbUrl: "",
     adminUsername: "admin",
@@ -133,7 +133,7 @@ export default function TenantManagementPage() {
       setShowModal(false);
       setEditingTenant(null);
       setFormData({ 
-        companyCode: "", 
+        slug: "", 
         companyName: "", 
         dbUrl: "", 
         adminUsername: "admin", 
@@ -151,7 +151,7 @@ export default function TenantManagementPage() {
   function openEditModal(tenant: Tenant) {
     setEditingTenant(tenant);
     setFormData({
-      companyCode: tenant.companyCode,
+      slug: tenant.slug,
       companyName: tenant.companyName,
       dbUrl: tenant.dbUrl,
       adminUsername: tenant.adminUsername,
@@ -166,7 +166,7 @@ export default function TenantManagementPage() {
 
   const displayTenants = (activeTab === "ACTIVE" ? activeTenants : deletedTenants).filter(t => 
     t.companyName.toLowerCase().includes(search.toLowerCase()) || 
-    t.companyCode.toLowerCase().includes(search.toLowerCase())
+    t.slug.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -232,7 +232,7 @@ export default function TenantManagementPage() {
               onClick={() => {
                 setEditingTenant(null);
                 setFormData({ 
-                  companyCode: "", 
+                  slug: "", 
                   companyName: "", 
                   dbUrl: "", 
                   adminUsername: "admin", 
@@ -253,7 +253,7 @@ export default function TenantManagementPage() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-black/50 text-slate-400 text-xs font-semibold uppercase tracking-widest border-b border-slate-800">
-                <th className="px-6 py-4">Company Identifer</th>
+                <th className="px-6 py-4">Company & Login URL</th>
                 <th className="px-6 py-4">Status</th>
                 <th className="px-6 py-4 text-center">Validity</th>
                 <th className="px-6 py-4 text-right">Service Actions</th>
@@ -275,11 +275,11 @@ export default function TenantManagementPage() {
                   <td className="px-6 py-5">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center border border-slate-700 font-bold text-slate-300">
-                        {tenant.companyCode.slice(0, 2)}
+                        {tenant.slug.slice(0, 2).toUpperCase()}
                       </div>
                       <div>
                         <div className="text-white font-semibold">{tenant.companyName}</div>
-                        <div className="text-xs text-slate-500 font-mono tracking-tighter capitalize">ID: {tenant.companyCode}</div>
+                        <div className="text-xs text-slate-500 font-mono tracking-tighter">URL: /{tenant.slug}-hr</div>
                       </div>
                     </div>
                   </td>
@@ -396,17 +396,7 @@ export default function TenantManagementPage() {
             </div>
             
             <form onSubmit={handleFormSubmit} className="p-8 space-y-5">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Company Code</label>
-                  <input 
-                    required 
-                    placeholder="E.g. CO-101"
-                    disabled={!!editingTenant}
-                    value={formData.companyCode}
-                    onChange={(e) => setFormData({...formData, companyCode: e.target.value.toUpperCase()})}
-                    className="w-full bg-black border border-slate-700 rounded-xl px-4 py-2.5 text-white outline-none focus:ring-2 focus:ring-red-600 transition-all font-mono disabled:opacity-50" />
-                </div>
+              <div className="grid grid-cols-1 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Company Name</label>
                   <input 
@@ -415,6 +405,21 @@ export default function TenantManagementPage() {
                     value={formData.companyName}
                     onChange={(e) => setFormData({...formData, companyName: e.target.value})}
                     className="w-full bg-black border border-slate-700 rounded-xl px-4 py-2.5 text-white outline-none focus:ring-2 focus:ring-red-600 transition-all" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Login URL Slug (Branding)</label>
+                  <div className="flex items-center bg-black border border-slate-700 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-red-600 transition-all">
+                    <span className="pl-4 text-slate-600 font-mono text-sm select-none">/</span>
+                    <input 
+                      required 
+                      placeholder="apple"
+                      disabled={!!editingTenant}
+                      value={formData.slug}
+                      onChange={(e) => setFormData({...formData, slug: e.target.value.toLowerCase().trim().replace(/\s+/g, "-")})}
+                      className="w-full bg-transparent px-0 py-2.5 text-white outline-none font-mono disabled:opacity-50" />
+                    <span className="pr-4 text-slate-600 font-mono text-sm select-none">-hr</span>
+                  </div>
+                  <p className="text-[10px] text-slate-500 px-1">This defines your unique login URL e.g. /{formData.slug || "company"}-hr</p>
                 </div>
               </div>
 

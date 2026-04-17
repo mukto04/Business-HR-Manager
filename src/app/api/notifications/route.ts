@@ -20,10 +20,10 @@ export async function GET() {
     if (token) {
       const secret = new TextEncoder().encode(process.env.SESSION_SECRET || "fallback-secret");
       const { payload } = await jose.jwtVerify(token, secret);
-      const companyCode = payload.companyCode as string;
+      const slug = (payload.slug || payload.companyCode) as string;
 
-      if (companyCode) {
-        const tenant = await masterPrisma.tenant.findUnique({ where: { companyCode } });
+      if (slug) {
+        const tenant = await masterPrisma.tenant.findUnique({ where: { slug } });
         if (tenant) {
           const daysLeft = tenant.subscriptionEnd 
             ? Math.ceil((new Date(tenant.subscriptionEnd).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))

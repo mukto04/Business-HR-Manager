@@ -16,7 +16,7 @@ export async function GET() {
 
     return NextResponse.json({
       companyName: payload.companyName,
-      companyCode: payload.companyCode,
+      slug: payload.slug || payload.companyCode,
       role: payload.role
     });
   } catch (error) {

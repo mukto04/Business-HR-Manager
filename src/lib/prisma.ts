@@ -41,7 +41,7 @@ export async function getTenantPrisma() {
     const { payload } = await jose.jwtVerify(token, secret);
     
     const dbUrl = payload.dbUrl as string;
-    const companyCode = payload.companyCode as string;
+    const slug = (payload.slug || payload.companyCode) as string;
 
     if (!dbUrl) {
       throw new Error("Tenant Database URL not found in session.");
@@ -50,7 +50,7 @@ export async function getTenantPrisma() {
     // --- Subscription Enforcement Check ---
     // We check the master database to see if this tenant is still active
     const tenantRecord = await masterPrisma.tenant.findUnique({
-      where: companyCode ? { companyCode } : { companyCode: "UNKNOWN" } // Fallback to unknown if not in payload
+      where: slug ? { slug } : { slug: "UNKNOWN" } // Support both legacy companyCode and new slug in JWT during transition
     });
 
     if (tenantRecord) {

@@ -28,9 +28,31 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // 2. Allow public paths
+  // 2. Allow public paths & handle dynamic company URIs
   if (PUBLIC_PATHS.some(p => pathname === p || pathname.startsWith(p + "/"))) {
     return NextResponse.next();
+  }
+
+  // Handle dynamic /[slug]-hr paths
+  if (pathname.endsWith("-hr")) {
+    const slug = pathname.replace("-hr", "").substring(1); // Remove leading slash and suffix
+    if (slug) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      url.searchParams.set("slug", slug);
+      return NextResponse.rewrite(url);
+    }
+  }
+
+  // Handle dynamic /[slug]-employee paths
+  if (pathname.endsWith("-employee")) {
+    const slug = pathname.replace("-employee", "").substring(1);
+    if (slug) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/employee-login";
+      url.searchParams.set("slug", slug);
+      return NextResponse.rewrite(url);
+    }
   }
 
   // 3. Super Admin Route Protection (UI & API)

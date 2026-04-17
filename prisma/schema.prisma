@@ -198,7 +198,7 @@ model AttendanceRequest {
 
 model Tenant {
   id             String    @id @default(auto()) @map("_id") @db.ObjectId
-  companyCode    String    @unique
+  slug           String    @unique
   companyName    String
   dbUrl          String
   status         String    @default("ACTIVE") // ACTIVE, FROZEN
