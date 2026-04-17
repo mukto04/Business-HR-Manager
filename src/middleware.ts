@@ -6,11 +6,14 @@ const EMPLOYEE_COOKIE = "employee_session";
 
 async function verifyToken(token: string, secret: string) {
   try {
+    if (!token) return null;
     const encodedSecret = new TextEncoder().encode(secret);
-    const { payload } = await jose.jwtVerify(token, encodedSecret);
+    const { payload } = await jose.jwtVerify(token, encodedSecret, {
+      algorithms: ["HS256"],
+    });
     return payload;
   } catch (err: any) {
-    console.error("JWT Verify Error:", err.message);
+    console.error("[Middleware] JWT Verification Failed:", err.message);
     return null;
   }
 }
@@ -81,10 +84,11 @@ export async function middleware(request: NextRequest) {
   const payload = hrToken ? await verifyToken(hrToken, secret) : null;
 
   if (!payload || payload.role !== "HR_ADMIN") {
-    console.warn(`[Middleware] No valid HR_ADMIN payload at ${pathname}. Token present: ${!!hrToken}`);
-    const loginUrl = new URL("/login", request.url);
-    // Don't redirect the login page itself! (extra safety)
+    // If we're already on the login page, don't redirect (important!)
     if (pathname === "/login") return NextResponse.next();
+
+    console.warn(`[Middleware] Unauthorized HR attempt at ${pathname}. Token: ${!!hrToken}`);
+    const loginUrl = new URL("/login", request.url);
     return NextResponse.redirect(loginUrl);
   }
 

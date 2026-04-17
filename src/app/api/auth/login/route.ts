@@ -60,14 +60,19 @@ export async function POST(request: NextRequest) {
     });
 
     // 4. Set Session Cookie
+    const oneDay = 24 * 60 * 60 * 1000;
+    const expires = new Date(Date.now() + oneDay);
+
     response.cookies.set(COOKIE_NAME, token, {
       httpOnly: true,
       path: "/",
+      expires: expires,
       maxAge: 60 * 60 * 24, // 24 hours
       sameSite: "lax",
+      secure: true, // Always secure for modern browsers on Vercel
     });
 
-    console.log(`Login successful. Token length: ${token.length}`);
+    console.log(`[Login] Successful. Token length: ${token.length}. Expires: ${expires.toISOString()}`);
     return response;
   } catch (error: any) {
     console.error("Multi-tenant login error:", error);
