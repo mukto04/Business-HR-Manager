@@ -14,7 +14,7 @@ const PUBLIC_PATHS = [
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // 1. Skip static assets
+  // 1. Skip static assets and internal next.js files
   if (
     pathname.includes(".") || 
     pathname.startsWith("/_next") || 
@@ -28,29 +28,31 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // 3. Super Admin & Employee checks (Simple presence check for Edge)
-  if (pathname.startsWith("/super-admin")) {
+  // 3. Super Admin Route Protection (UI & API)
+  if (pathname.startsWith("/super-admin") || pathname.startsWith("/api/super-admin")) {
     const adminToken = request.cookies.get("super_session")?.value;
+    // Allow login API to pass through
+    if (pathname === "/api/super-admin/login") return NextResponse.next();
+    
     if (!adminToken) {
        if (pathname === "/super-admin/login") return NextResponse.next();
        return NextResponse.redirect(new URL("/super-admin/login", request.url));
     }
-    return NextResponse.next(); // Stop here if admin session exists
+    return NextResponse.next(); // Stop here for super-admin verified requests
   }
 
-  const isEmployeePortal = pathname === "/employee" || pathname.startsWith("/employee/") || 
-                           pathname === "/api/employee" || pathname.startsWith("/api/employee/");
+  // 4. Employee Portal Route Protection (UI & API)
+  const isEmployeeRoute = pathname.startsWith("/employee") || pathname.startsWith("/api/employee");
+  const isHREmployeePage = pathname === "/employees" || pathname.startsWith("/employees/");
 
-  if (isEmployeePortal) {
+  if (isEmployeeRoute && !isHREmployeePage) {
     const empToken = request.cookies.get("employee_session")?.value;
     if (!empToken) return NextResponse.redirect(new URL("/employee-login", request.url));
-    return NextResponse.next(); // Stop here if employee session exists
+    return NextResponse.next(); // Stop here for employee verified requests
   }
 
-  // 4. HR Portal Check (The "No-Redirect-Loop" Logic)
-  // We simply check if the cookie exists. 
-  // The ACTUAL data security is handled in the API calls (Node.js side)
-  // where we have already verified that token verification works perfectly.
+  // 5. HR Portal Check (Default catch-all for / and HR Specific routes)
+  // This will handle "/", "/employees", "/attendance", etc.
   const hrToken = request.cookies.get(HR_COOKIE)?.value;
 
   if (!hrToken) {
@@ -58,7 +60,6 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  // If cookie exists, let them in. API routes will handle invalid/expired tokens.
   return NextResponse.next();
 }
 
