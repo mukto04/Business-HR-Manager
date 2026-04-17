@@ -81,8 +81,10 @@ export async function middleware(request: NextRequest) {
   const payload = hrToken ? await verifyToken(hrToken, secret) : null;
 
   if (!payload || payload.role !== "HR_ADMIN") {
-    console.warn(`Access denied to ${pathname}. Payload:`, !!payload, "Role:", payload?.role);
+    console.warn(`[Middleware] No valid HR_ADMIN payload at ${pathname}. Token present: ${!!hrToken}`);
     const loginUrl = new URL("/login", request.url);
+    // Don't redirect the login page itself! (extra safety)
+    if (pathname === "/login") return NextResponse.next();
     return NextResponse.redirect(loginUrl);
   }
 
