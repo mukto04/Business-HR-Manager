@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as jose from "jose";
 
-const HR_COOKIE = "hr_session";
+const HR_COOKIE = "hr_auth_token";
 const EMPLOYEE_COOKIE = "employee_session";
+const SESSION_SECRET_FALLBACK = "appdevs-hr-portal-secure-vault-998877";
 
 async function verifyToken(token: string, secret: string) {
   try {
@@ -46,7 +47,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const secret = process.env.SESSION_SECRET || "hr-manager-super-secret-123-fallback";
+  const secret = process.env.SESSION_SECRET || SESSION_SECRET_FALLBACK;
 
   // 3. Super Admin Check (Page & API)
   if (pathname.startsWith("/super-admin") || pathname.startsWith("/api/super-admin")) {
@@ -89,7 +90,10 @@ export async function middleware(request: NextRequest) {
 
     console.warn(`[Middleware] Unauthorized HR attempt at ${pathname}. Token: ${!!hrToken}`);
     const loginUrl = new URL("/login", request.url);
-    return NextResponse.redirect(loginUrl);
+    const redirectResponse = NextResponse.redirect(loginUrl);
+    // Add debug header to help identify why it redirected
+    redirectResponse.headers.set("x-auth-error", !payload ? "NO_PAYLOAD" : "INVALID_ROLE");
+    return redirectResponse;
   }
 
   return NextResponse.next();

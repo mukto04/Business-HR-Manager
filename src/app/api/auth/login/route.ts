@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { masterPrisma } from "@/lib/prisma";
 import * as jose from "jose";
 
-const COOKIE_NAME = "hr_session";
+const COOKIE_NAME = "hr_auth_token";
+const SESSION_SECRET = "appdevs-hr-portal-secure-vault-998877";
 
 export async function POST(request: NextRequest) {
   try {
@@ -38,7 +39,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 3. Create Session Token (JWT) with Dynamic DB URL
-    const secretKey = process.env.SESSION_SECRET || "hr-manager-super-secret-123-fallback";
+    const secretKey = process.env.SESSION_SECRET || SESSION_SECRET;
     const secret = new TextEncoder().encode(secretKey);
     
     console.log(`Generating token for ${tenant.companyName} (${tenant.companyCode})`);
@@ -66,10 +67,9 @@ export async function POST(request: NextRequest) {
     response.cookies.set(COOKIE_NAME, token, {
       httpOnly: true,
       path: "/",
-      expires: expires,
       maxAge: 60 * 60 * 24, // 24 hours
       sameSite: "lax",
-      secure: true, // Always secure for modern browsers on Vercel
+      secure: true
     });
 
     console.log(`[Login] Successful. Token length: ${token.length}. Expires: ${expires.toISOString()}`);

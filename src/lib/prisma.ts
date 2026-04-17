@@ -29,14 +29,15 @@ if (!globalForPrisma.tenantClients) {
  */
 export async function getTenantPrisma() {
   const cookieStore = await cookies();
-  const token = cookieStore.get("hr_session")?.value || cookieStore.get("employee_session")?.value;
+  const token = cookieStore.get("hr_auth_token")?.value || cookieStore.get("employee_session")?.value;
 
   if (!token) {
     throw new Error("No active session. Database connection unavailable.");
   }
 
   try {
-    const secret = new TextEncoder().encode(process.env.SESSION_SECRET || "fallback-secret");
+    const secretStr = process.env.SESSION_SECRET || "appdevs-hr-portal-secure-vault-998877";
+    const secret = new TextEncoder().encode(secretStr);
     const { payload } = await jose.jwtVerify(token, secret);
     
     const dbUrl = payload.dbUrl as string;
