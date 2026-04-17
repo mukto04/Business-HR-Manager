@@ -60,7 +60,7 @@ export function LeavesClient() {
   async function handleBulkGenerate() {
     try {
       setGenerating(true);
-      const res = await sendJson("/api/leaves/bulk", "POST", {
+      const res = await sendJson<{ message: string }>("/api/leaves/bulk", "POST", {
         year: genYear,
         defaultAmount: genAmount,
         overwrite: overwrite

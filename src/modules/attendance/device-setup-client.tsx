@@ -216,10 +216,10 @@ setInterval(sync, SYNC_INTERVAL_MINUTES * 60 * 1000);
                     </div>
 
                   <div className="flex items-center gap-2">
-                    <Button variant="secondary" size="sm" onClick={() => downloadAgent(device)}>
+                    <Button variant="secondary" onClick={() => downloadAgent(device)}>
                        <Download className="mr-2 h-3.5 w-3.5" /> Download Agent
                     </Button>
-                    <Button variant="danger" size="sm" onClick={() => deleteDevice(device.id)}>
+                    <Button variant="danger" onClick={() => deleteDevice(device.id)}>
                        <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
@@ -237,7 +237,6 @@ setInterval(sync, SYNC_INTERVAL_MINUTES * 60 * 1000);
                           />
                          <Button 
                             variant="secondary" 
-                            size="icon" 
                             onClick={() => copyToClipboard(device.apiKey, device.id)}
                             className={copiedId === device.id ? "text-green-600 border-green-200 bg-green-50" : ""}
                           >

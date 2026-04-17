@@ -276,7 +276,7 @@ export default function AttendancePage() {
         subtitle="View and manage daily attendance records"
         actions={
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setIsSettingsOpen(true)}>
+            <Button variant="secondary" onClick={() => setIsSettingsOpen(true)}>
               <Settings2 className="mr-2 h-4 w-4" /> Attendance Settings
             </Button>
             <Link href="/attendance/setup">
