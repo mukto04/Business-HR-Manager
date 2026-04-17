@@ -11,10 +11,15 @@ const PUBLIC_PATHS = [
   "/public"
 ];
 
+// Helper to check if a path exactly match or is a subpath of a prefix (e.g. /employee match /employee/1 but not /employees)
+function matchPath(pathname: string, prefix: string) {
+  return pathname === prefix || pathname.startsWith(prefix + "/");
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // 1. Skip static assets and internal next.js files
+  // 1. Skip static assets
   if (
     pathname.includes(".") || 
     pathname.startsWith("/_next") || 
@@ -29,30 +34,29 @@ export async function middleware(request: NextRequest) {
   }
 
   // 3. Super Admin Route Protection (UI & API)
-  if (pathname.startsWith("/super-admin") || pathname.startsWith("/api/super-admin")) {
+  if (matchPath(pathname, "/super-admin") || matchPath(pathname, "/api/super-admin")) {
     const adminToken = request.cookies.get("super_session")?.value;
-    // Allow login API to pass through
     if (pathname === "/api/super-admin/login") return NextResponse.next();
     
     if (!adminToken) {
        if (pathname === "/super-admin/login") return NextResponse.next();
        return NextResponse.redirect(new URL("/super-admin/login", request.url));
     }
-    return NextResponse.next(); // Stop here for super-admin verified requests
+    return NextResponse.next();
   }
 
   // 4. Employee Portal Route Protection (UI & API)
-  const isEmployeeRoute = pathname.startsWith("/employee") || pathname.startsWith("/api/employee");
-  const isHREmployeePage = pathname === "/employees" || pathname.startsWith("/employees/");
+  // We use strict matching here to avoid conflict with /employees (plural)
+  const isEmployeePortal = matchPath(pathname, "/employee") || matchPath(pathname, "/api/employee");
 
-  if (isEmployeeRoute && !isHREmployeePage) {
+  if (isEmployeePortal) {
     const empToken = request.cookies.get("employee_session")?.value;
     if (!empToken) return NextResponse.redirect(new URL("/employee-login", request.url));
-    return NextResponse.next(); // Stop here for employee verified requests
+    return NextResponse.next();
   }
 
-  // 5. HR Portal Check (Default catch-all for / and HR Specific routes)
-  // This will handle "/", "/employees", "/attendance", etc.
+  // 5. HR Portal Check (Fallback)
+  // Everything else (/, /employees, /attendance, etc.) is considered HR territory
   const hrToken = request.cookies.get(HR_COOKIE)?.value;
 
   if (!hrToken) {
