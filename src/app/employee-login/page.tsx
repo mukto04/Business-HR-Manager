@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, useEffect, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { Lock, User, Building2, Loader2 } from "lucide-react";
 
 function EmployeeLoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const slugFromUrl = searchParams.get("slug");
+  const pathname = usePathname();
+  const slugFromUrl = searchParams.get("slug") || (pathname.endsWith("-employee") ? pathname.replace("-employee", "").substring(1) : "");
 
   const [slug, setSlug] = useState(slugFromUrl || "");
   const [companyName, setCompanyName] = useState("");

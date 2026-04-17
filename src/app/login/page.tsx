@@ -1,13 +1,16 @@
 "use client";
 
 import { useState, useEffect, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { Lock, User, Database, Building2, Loader2 } from "lucide-react";
 
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const slugFromUrl = searchParams.get("slug");
+  const pathname = usePathname();
+  
+  // Detect slug from search params or fallback to pathname (for branded URLs like /appdevsuk-hr)
+  const slugFromUrl = searchParams.get("slug") || (pathname.endsWith("-hr") ? pathname.replace("-hr", "").substring(1) : "");
   
   const [slug, setSlug] = useState(slugFromUrl || "");
   const [companyName, setCompanyName] = useState("");
