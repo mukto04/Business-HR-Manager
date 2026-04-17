@@ -30,7 +30,7 @@ export default function SuperAdminLoginPage() {
         return;
       }
 
-      router.push("/super-admin");
+      router.push("/super-admin/tenants");
       router.refresh();
     } catch (err: any) {
       console.error("Super Admin Login Error:", err);

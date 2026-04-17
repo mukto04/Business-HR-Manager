@@ -64,6 +64,12 @@ export async function middleware(request: NextRequest) {
        if (pathname === "/super-admin/login") return NextResponse.next();
        return NextResponse.redirect(new URL("/super-admin/login", request.url));
     }
+    
+    // Redirect /super-admin to /super-admin/tenants for authenticated admins
+    if (pathname === "/super-admin") {
+      return NextResponse.redirect(new URL("/super-admin/tenants", request.url));
+    }
+    
     return NextResponse.next();
   }
 
