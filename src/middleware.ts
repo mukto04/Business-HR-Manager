@@ -35,6 +35,7 @@ export async function middleware(request: NextRequest) {
        if (pathname === "/super-admin/login") return NextResponse.next();
        return NextResponse.redirect(new URL("/super-admin/login", request.url));
     }
+    return NextResponse.next(); // Stop here if admin session exists
   }
 
   const isEmployeePortal = pathname === "/employee" || pathname.startsWith("/employee/") || 
@@ -43,6 +44,7 @@ export async function middleware(request: NextRequest) {
   if (isEmployeePortal) {
     const empToken = request.cookies.get("employee_session")?.value;
     if (!empToken) return NextResponse.redirect(new URL("/employee-login", request.url));
+    return NextResponse.next(); // Stop here if employee session exists
   }
 
   // 4. HR Portal Check (The "No-Redirect-Loop" Logic)
