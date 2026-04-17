@@ -28,7 +28,7 @@ export async function middleware(request: NextRequest) {
 
   // 3. Super Admin & Employee checks (Simple presence check for Edge)
   if (pathname.startsWith("/super-admin")) {
-    const adminToken = request.cookies.get("admin_session")?.value;
+    const adminToken = request.cookies.get("super_session")?.value;
     if (!adminToken) {
        if (pathname === "/super-admin/login") return NextResponse.next();
        return NextResponse.redirect(new URL("/super-admin/login", request.url));
