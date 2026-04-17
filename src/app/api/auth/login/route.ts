@@ -12,13 +12,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: "Company code, username and password are required." }, { status: 400 });
     }
 
-    // 1. Check Master DB for Tenant
+    // 1. Initial Checks
+    if (!process.env.DATABASE_URL) {
+      console.error("CRITICAL: DATABASE_URL is not set in environment.");
+      return NextResponse.json({ message: "Server configuration error: Database URL missing." }, { status: 500 });
+    }
+
     const tenant = await masterPrisma.tenant.findUnique({
       where: { companyCode: companyCode.toUpperCase() }
     });
 
     if (!tenant) {
-      return NextResponse.json({ message: "Invalid company code." }, { status: 404 });
+      console.warn(`Login attempt for non-existent company: ${companyCode}`);
+      return NextResponse.json({ message: `Invalid company code: ${companyCode}` }, { status: 404 });
     }
 
     if (tenant.status === "FROZEN") {
@@ -27,12 +33,16 @@ export async function POST(request: NextRequest) {
 
     // 2. Tenant Credential Check
     if (username !== tenant.adminUsername || password !== tenant.adminPassword) {
+        console.warn(`Invalid credentials for company ${companyCode}: User ${username}`);
         return NextResponse.json({ message: "Invalid username or password for this company." }, { status: 401 });
     }
 
     // 3. Create Session Token (JWT) with Dynamic DB URL
-    const secret = new TextEncoder().encode(process.env.SESSION_SECRET || "fallback-secret");
+    const secretKey = process.env.SESSION_SECRET || "fallback-secret";
+    const secret = new TextEncoder().encode(secretKey);
     
+    console.log(`Generating token for ${tenant.companyName} (${tenant.companyCode})`);
+
     const token = await new jose.SignJWT({
       companyCode: tenant.companyCode,
       companyName: tenant.companyName,
@@ -52,14 +62,19 @@ export async function POST(request: NextRequest) {
     // 4. Set Session Cookie
     response.cookies.set(COOKIE_NAME, token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: true, // Force secure in all environments for testing on Vercel
       sameSite: "lax",
       path: "/",
+      maxAge: 60 * 60 * 24 // 24 hours
     });
 
+    console.log(`Login successful for ${username} at ${companyCode}. Cookie set.`);
     return response;
-  } catch (error) {
+  } catch (error: any) {
     console.error("Multi-tenant login error:", error);
-    return NextResponse.json({ message: "An unexpected error occurred during login." }, { status: 500 });
+    return NextResponse.json({ 
+      message: "An unexpected error occurred during login.",
+      detail: error.message 
+    }, { status: 500 });
   }
 }

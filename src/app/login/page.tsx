@@ -18,22 +18,28 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
+      console.log("Attempting login for:", { companyCode, username });
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ companyCode, username, password }),
       });
 
+      console.log("API Response status:", res.status);
+      const data = await res.json();
+
       if (!res.ok) {
-        const data = await res.json();
-        setError(data.message || "Invalid credentials.");
+        console.error("Login failed:", data);
+        setError(data.message || data.detail || "Invalid credentials.");
         return;
       }
 
+      console.log("Login successful, redirecting...");
       router.push("/");
       router.refresh();
-    } catch {
-      setError("Something went wrong. Please try again.");
+    } catch (err: any) {
+      console.error("Fetch error:", err);
+      setError("Network error or server is down. Please try again.");
     } finally {
       setLoading(false);
     }
