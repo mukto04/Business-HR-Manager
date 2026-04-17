@@ -12,12 +12,13 @@ export async function POST(request: NextRequest) {
 
     const response = NextResponse.json({ message: "Welcome, Super Admin." });
 
-    // Set simple super session cookie
+    // Set secure super session cookie
     response.cookies.set("super_session", masterPassword, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: true, // Force secure on Vercel
       sameSite: "lax",
       path: "/",
+      maxAge: 60 * 60 * 24 // 24 hours
     });
 
     return response;

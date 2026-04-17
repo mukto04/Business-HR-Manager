@@ -22,16 +22,19 @@ export default function SuperAdminLoginPage() {
         body: JSON.stringify({ password }),
       });
 
+      console.log("Super Admin Login Status:", res.status);
+      const data = await res.json();
+
       if (!res.ok) {
-        const data = await res.json();
         setError(data.message || "Unauthorized access.");
         return;
       }
 
       router.push("/super-admin");
       router.refresh();
-    } catch {
-      setError("An error occurred. Please try again.");
+    } catch (err: any) {
+      console.error("Super Admin Login Error:", err);
+      setError(`Connection error: ${err.message || 'Please try again'}`);
     } finally {
       setLoading(false);
     }
