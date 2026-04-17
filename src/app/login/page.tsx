@@ -96,85 +96,75 @@ export default function LoginPage() {
 
         {/* Card */}
         <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl text-left">
-          <form onSubmit={handleSubmit} autoComplete="on" className="space-y-5">
-            {/* Slug Field - Only shown if not in branded mode */}
-            {!slugFromUrl && (
+          {slugFromUrl || companyName ? (
+            <form onSubmit={handleSubmit} autoComplete="on" className="space-y-6">
+              {/* Username */}
               <div>
-                <label htmlFor="slug" className="block text-sm font-medium text-slate-300 mb-2">
-                  Company Login URL Slug
+                <label htmlFor="username" className="block text-sm font-medium text-slate-300 mb-2">
+                  Username
                 </label>
                 <div className="relative">
-                  <Database className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
                   <input
-                    id="slug"
-                    name="slug"
+                    id="username"
+                    name="username"
                     type="text"
+                    autoComplete="username"
                     required
-                    value={slug}
-                    onChange={e => setSlug(e.target.value.toLowerCase())}
-                    placeholder="E.g. appdevs"
+                    value={username}
+                    onChange={e => setUsername(e.target.value)}
+                    placeholder="Enter username"
                     className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-slate-500 outline-none focus:ring-2 focus:ring-blue-500 transition"
                   />
                 </div>
               </div>
-            )}
 
-            {/* Username */}
-            <div>
-              <label htmlFor="username" className="block text-sm font-medium text-slate-300 mb-2">
-                Username
-              </label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
-                <input
-                  id="username"
-                  name="username"
-                  type="text"
-                  autoComplete="username"
-                  required
-                  value={username}
-                  onChange={e => setUsername(e.target.value)}
-                  placeholder="Enter username"
-                  className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-slate-500 outline-none focus:ring-2 focus:ring-blue-500 transition"
-                />
+              {/* Password */}
+              <div>
+                <label htmlFor="password" className="block text-sm font-medium text-slate-300 mb-2">
+                  Password
+                </label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                  <input
+                    id="password"
+                    name="current-password"
+                    type="password"
+                    autoComplete="current-password"
+                    required
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    placeholder="Enter password"
+                    className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-slate-500 outline-none focus:ring-2 focus:ring-blue-500 transition"
+                  />
+                </div>
+              </div>
+
+              {error && (
+                <div className="rounded-xl bg-red-500/20 border border-red-500/30 px-4 py-3 text-sm text-red-300">
+                  {error}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={loading || resolving}
+                className="w-full py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 disabled:cursor-not-allowed text-white font-semibold text-sm transition-colors shadow-lg shadow-blue-500/20"
+              >
+                {loading ? "Signing in…" : "Sign In"}
+              </button>
+            </form>
+          ) : (
+            <div className="text-center py-4 space-y-4">
+              <div className="inline-flex items-center justify-center p-3 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-500">
+                <Building2 className="h-6 w-6" />
+              </div>
+              <div>
+                <h3 className="text-white font-semibold">Branded URL Required</h3>
+                <p className="text-slate-400 text-sm mt-1">Please use your company's unique login URL (e.g. yourcompany-hr) to sign in.</p>
               </div>
             </div>
-
-            {/* Password */}
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-slate-300 mb-2">
-                Password
-              </label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
-                <input
-                  id="password"
-                  name="current-password"
-                  type="password"
-                  autoComplete="current-password"
-                  required
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  placeholder="Enter password"
-                  className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-slate-500 outline-none focus:ring-2 focus:ring-blue-500 transition"
-                />
-              </div>
-            </div>
-
-            {error && (
-              <div className="rounded-xl bg-red-500/20 border border-red-500/30 px-4 py-3 text-sm text-red-300">
-                {error}
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={loading || resolving}
-              className="w-full py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 disabled:cursor-not-allowed text-white font-semibold text-sm transition-colors shadow-lg shadow-blue-500/20"
-            >
-              {loading ? "Signing in…" : "Sign In"}
-            </button>
-          </form>
+          )}
         </div>
 
         <p className="text-center text-slate-600 text-xs mt-6">
