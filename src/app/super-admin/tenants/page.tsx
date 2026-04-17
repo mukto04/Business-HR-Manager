@@ -409,15 +409,16 @@ export default function TenantManagementPage() {
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Login URL Slug (Branding)</label>
                   <div className="flex items-center bg-black border border-slate-700 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-red-600 transition-all">
-                    <span className="pl-4 text-slate-600 font-mono text-sm select-none">/</span>
+                    <span className="pl-4 text-slate-500 font-mono text-sm select-none">/</span>
                     <input 
                       required 
                       placeholder="apple"
-                      disabled={!!editingTenant}
                       value={formData.slug}
                       onChange={(e) => setFormData({...formData, slug: e.target.value.toLowerCase().trim().replace(/\s+/g, "-")})}
-                      className="w-full bg-transparent px-0 py-2.5 text-white outline-none font-mono disabled:opacity-50" />
-                    <span className="pr-4 text-slate-600 font-mono text-sm select-none">-hr</span>
+                      className="w-full bg-transparent px-2 py-2.5 text-white outline-none font-mono" />
+                    <span className="pr-4 py-2.5 bg-slate-800/50 text-red-500 font-bold font-mono text-sm select-none border-l border-slate-700 whitespace-nowrap">
+                      -hr
+                    </span>
                   </div>
                   <p className="text-[10px] text-slate-500 px-1">This defines your unique login URL e.g. /{formData.slug || "company"}-hr</p>
                 </div>

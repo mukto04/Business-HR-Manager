@@ -3,12 +3,19 @@ import { masterPrisma } from "@/lib/prisma";
 
 export async function GET() {
   try {
+    console.log("Super Admin: Fetching companies...");
     const tenants = await masterPrisma.tenant.findMany({
       orderBy: { createdAt: "desc" }
     });
-    return NextResponse.json(tenants);
-  } catch (error) {
-    return NextResponse.json({ message: "Failed to fetch tenants" }, { status: 500 });
+    console.log(`Super Admin: Found ${tenants?.length || 0} companies.`);
+    return NextResponse.json(tenants || []);
+  } catch (error: any) {
+    console.error("Super Admin Fetch Error:", error);
+    return NextResponse.json({ 
+      message: "Failed to fetch tenants", 
+      error: error.message,
+      stack: error.stack 
+    }, { status: 500 });
   }
 }
 
