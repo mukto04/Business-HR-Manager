@@ -35,7 +35,10 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  if (pathname.startsWith("/employee")) {
+  const isEmployeePortal = pathname === "/employee" || pathname.startsWith("/employee/") || 
+                           pathname === "/api/employee" || pathname.startsWith("/api/employee/");
+
+  if (isEmployeePortal) {
     const empToken = request.cookies.get("employee_session")?.value;
     if (!empToken) return NextResponse.redirect(new URL("/employee-login", request.url));
   }
