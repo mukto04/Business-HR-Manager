@@ -15,7 +15,9 @@ import {
   ShieldX,
   History,
   CheckCircle2,
-  Edit2
+  Edit2,
+  Eye,
+  EyeOff
 } from "lucide-react";
 
 interface Tenant {
@@ -38,6 +40,7 @@ export default function TenantManagementPage() {
   const [editingTenant, setEditingTenant] = useState<Tenant | null>(null);
   const [activeTab, setActiveTab] = useState<"ACTIVE" | "HISTORY">("ACTIVE");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const [formData, setFormData] = useState({
     slug: "",
@@ -446,12 +449,21 @@ export default function TenantManagementPage() {
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Initial Admin Password</label>
-                  <input 
-                    required 
-                    type="password"
-                    value={formData.adminPassword}
-                    onChange={(e) => setFormData({...formData, adminPassword: e.target.value})}
-                    className="w-full bg-black border border-slate-700 rounded-xl px-4 py-2.5 text-white outline-none focus:ring-2 focus:ring-red-600 transition-all font-mono" />
+                  <div className="relative">
+                    <input 
+                      required 
+                      type={showPassword ? "text" : "password"}
+                      value={formData.adminPassword}
+                      onChange={(e) => setFormData({...formData, adminPassword: e.target.value})}
+                      className="w-full bg-black border border-slate-700 rounded-xl pl-4 pr-12 py-2.5 text-white outline-none focus:ring-2 focus:ring-red-600 transition-all font-mono" />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-slate-500 hover:text-white transition-colors"
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
                 </div>
               </div>
 

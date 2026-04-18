@@ -5,7 +5,7 @@ import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
 import { useState, useEffect } from "react";
 
-const AUTH_ROUTES = ["/login", "/employee-login", "/employee", "/setup", "/super-admin"];
+const AUTH_ROUTES = ["/", "/login", "/employee-login", "/employee", "/setup", "/super-admin"];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();

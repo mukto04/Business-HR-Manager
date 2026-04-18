@@ -19,7 +19,7 @@ import { cn } from "@/utils/classnames";
 import { useAsyncData } from "@/modules/shared/use-async-data";
 
 const links = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/employees", label: "Employees", icon: Users },
   { href: "/attendance", label: "Attendance", icon: Clock },
   { href: "/attendance/requests", label: "Manual Requests", icon: Clock },

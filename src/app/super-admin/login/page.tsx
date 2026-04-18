@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ShieldAlert, Key, Loader2 } from "lucide-react";
+import { ShieldAlert, Key, Loader2, Eye, EyeOff } from "lucide-react";
 
 export default function SuperAdminLoginPage() {
   const router = useRouter();
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -57,13 +58,20 @@ export default function SuperAdminLoginPage() {
             <div className="relative group">
               <Key className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-500 group-focus-within:text-red-500 transition-colors" />
               <input
-                type="password"
+                type={showPassword ? "text" : "password"}
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Master Password"
-                className="w-full bg-black border border-slate-700 rounded-xl pl-11 pr-4 py-3 text-white placeholder-slate-600 outline-none focus:ring-2 focus:ring-red-600 focus:border-transparent transition-all"
+                className="w-full bg-black border border-slate-700 rounded-xl pl-11 pr-12 py-3 text-white placeholder-slate-600 outline-none focus:ring-2 focus:ring-red-600 focus:border-transparent transition-all"
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-slate-500 hover:text-white transition-colors"
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
             </div>
           </div>
 

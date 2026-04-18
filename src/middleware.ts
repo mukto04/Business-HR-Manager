@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 const HR_COOKIE = "hr_auth_token";
 const PUBLIC_PATHS = [
+  "/",
   "/login",
   "/api/auth/login",
   "/employee-login",

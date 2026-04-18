@@ -14,7 +14,9 @@ import {
   ExternalLink,
   Settings2,
   Copy,
-  Check
+  Check,
+  Eye,
+  EyeOff
 } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
@@ -58,6 +60,7 @@ export function DeviceSetupClient() {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [showApiKeyId, setShowApiKeyId] = useState<string | null>(null);
   const dialog = useDialog();
 
   const [formData, setFormData] = useState({
@@ -229,12 +232,21 @@ setInterval(sync, SYNC_INTERVAL_MINUTES * 60 * 1000);
                    <div className="space-y-2">
                       <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Device API Key (Private)</label>
                       <div className="flex gap-2">
-                         <Input 
-                            readOnly 
-                            value={device.apiKey} 
-                            type="password"
-                            className="bg-slate-50 font-mono text-xs border-dashed"
-                          />
+                         <div className="relative flex-1">
+                            <Input 
+                               readOnly 
+                               value={device.apiKey} 
+                               type={showApiKeyId === device.id ? "text" : "password"}
+                               className="bg-slate-50 font-mono text-xs border-dashed pr-10"
+                             />
+                            <button
+                               type="button"
+                               onClick={() => setShowApiKeyId(showApiKeyId === device.id ? null : device.id)}
+                               className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 transition-colors"
+                            >
+                               {showApiKeyId === device.id ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                            </button>
+                         </div>
                          <Button 
                             variant="secondary" 
                             onClick={() => copyToClipboard(device.apiKey, device.id)}
