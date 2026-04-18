@@ -65,7 +65,7 @@ export async function GET() {
       return NextResponse.json({ message: error.message }, { status: 403 });
     }
     return NextResponse.json(
-      { message: "Failed to load dashboard data. There might be a connection issue with your company database." }, 
+      { message: `Dashboard error: ${error.message}` }, 
       { status: 500 }
     );
   }

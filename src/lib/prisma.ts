@@ -47,10 +47,11 @@ export async function getTenantPrisma() {
       throw new Error("Tenant Database URL not found in session.");
     }
 
+    console.log(`[getTenantPrisma] Resolving tenant: ${slug}, dbUrl prefix: ${dbUrl.substring(0, 30)}...`);
+
     // --- Subscription Enforcement Check ---
-    // We check the master database to see if this tenant is still active
     const tenantRecord = await masterPrisma.tenant.findUnique({
-      where: slug ? { slug } : { slug: "UNKNOWN" } // Support both legacy companyCode and new slug in JWT during transition
+      where: slug ? { slug } : { slug: "UNKNOWN" }
     });
 
     if (tenantRecord) {
@@ -62,30 +63,34 @@ export async function getTenantPrisma() {
       }
     }
 
-    // Return cached client if exists
+    // In production (Vercel), avoid global caching of PrismaClient instances
+    // as serverless functions have short lifetimes and may cause connection issues
+    if (process.env.NODE_ENV === "production") {
+      const client = new PrismaClient({
+        datasources: { db: { url: dbUrl } },
+        log: ["error"],
+      });
+      return client;
+    }
+
+    // In development, use cached client
     if (globalForPrisma.tenantClients.has(dbUrl)) {
       return globalForPrisma.tenantClients.get(dbUrl)!;
     }
-    // ...
 
-    // Otherwise create a new client and cache it
     const client = new PrismaClient({
-      datasources: {
-        db: {
-          url: dbUrl,
-        },
-      },
+      datasources: { db: { url: dbUrl } },
       log: ["error"],
     });
 
     globalForPrisma.tenantClients.set(dbUrl, client);
     return client;
   } catch (error: any) {
-    console.error("Prisma Multi-Tenant Routing Error:", error);
+    console.error("Prisma Multi-Tenant Routing Error:", error.message);
     if (error.message && error.message.includes("ACCOUNT_FROZEN")) {
-      throw error; // Rethrow frozen status directly
+      throw error;
     }
-    throw new Error("Failed to resolve dynamic database connection.");
+    throw new Error(`Failed to resolve dynamic database connection: ${error.message}`);
   }
 }
 
