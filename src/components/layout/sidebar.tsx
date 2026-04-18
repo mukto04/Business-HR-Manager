@@ -60,11 +60,14 @@ export function Sidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: () =>
 
       <div className="flex-1 space-y-1 p-4">
         {links.map(({ href, label, icon: Icon }) => {
-          const active = pathname === href;
+          // Prefix the link with company slug if available for professional branded URL
+          const brandedHref = session?.slug ? `/${session.slug}-hr${href}` : href;
+          const active = pathname === href || pathname === brandedHref;
+          
           return (
             <Link
               key={href}
-              href={href}
+              href={brandedHref}
               className={cn(
                 "flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition",
                 active ? "bg-white text-slate-900" : "text-slate-300 hover:bg-white/10 hover:text-white"

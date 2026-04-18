@@ -12,6 +12,9 @@ export function Topbar({ onMenuClick }: { onMenuClick?: () => void }) {
     subscription: { daysLeft: number, endDate: string, adminUsername: string, adminPassword?: string } | null
   }>("/api/notifications", { notifications: [], subscription: null });
   
+  // Get session info (company name + slug) for display and logout redirect
+  const { data: session } = useAsyncData<{ companyName: string; slug: string }>("/api/me", { companyName: "HR Manager", slug: "" });
+
   const notifications = data?.notifications || [];
   const subscription = data?.subscription;
   
@@ -29,8 +32,15 @@ export function Topbar({ onMenuClick }: { onMenuClick?: () => void }) {
   const profileRef = useRef<HTMLDivElement>(null);
 
   async function handleLogout() {
-    await fetch("/api/auth/logout", { method: "POST" });
-    router.push("/login");
+    const slug = session?.slug;
+    const res = await fetch("/api/auth/logout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ slug }),
+    });
+    const result = await res.json().catch(() => ({}));
+    // Redirect to branded login or generic /login
+    router.push(result.redirect || (slug ? `/${slug}-hr` : "/login"));
     router.refresh();
   }
 
@@ -128,7 +138,7 @@ export function Topbar({ onMenuClick }: { onMenuClick?: () => void }) {
               className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm hover:bg-slate-50 transition-colors text-left"
             >
               <div>
-                <p className="font-semibold text-slate-900">Admin</p>
+                <p className="font-semibold text-slate-900">{session?.companyName || "Admin"}</p>
                 <p className="text-xs text-slate-500">HR Manager</p>
               </div>
             </button>
@@ -169,21 +179,29 @@ export function Topbar({ onMenuClick }: { onMenuClick?: () => void }) {
                     
                     {subscription && (
                       <div className="px-1">
-                        <div className="flex items-center justify-between mb-1">
-                           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Subscription</p>
-                           <span className={`text-[10px] font-bold ${subscription.daysLeft > 7 ? "text-green-600" : "text-red-500"}`}>
-                             {subscription.daysLeft} Days Left
-                           </span>
+                        <div className="flex items-center justify-between mb-2">
+                           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Service Validity</p>
+                           <div className="flex items-center gap-1.5">
+                             <div className={`h-2 w-2 rounded-full ${subscription.daysLeft > 7 ? 'bg-green-500 animate-pulse' : 'bg-red-500 animate-ping'}`}></div>
+                             <span className={`text-[11px] font-bold ${subscription.daysLeft > 7 ? "text-green-600" : "text-red-500"}`}>
+                               {subscription.daysLeft} Days Remaining
+                             </span>
+                           </div>
                         </div>
-                        <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                        <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden border border-slate-200/50">
                            <div 
-                            className={`h-full transition-all ${subscription.daysLeft > 7 ? 'bg-green-500' : 'bg-red-500'}`} 
+                            className={`h-full transition-all duration-1000 ${subscription.daysLeft > 7 ? 'bg-gradient-to-r from-green-400 to-green-600' : 'bg-gradient-to-r from-red-400 to-red-600'}`} 
                             style={{ width: `${Math.min(100, (subscription.daysLeft / 30) * 100)}%` }}
                            />
                         </div>
-                        <p className="text-[10px] text-slate-400 mt-1.5 italic">
-                          Expires: {subscription.endDate ? new Date(subscription.endDate).toLocaleDateString() : 'N/A'}
-                        </p>
+                        <div className="flex justify-between items-center mt-2">
+                          <p className="text-[10px] text-slate-400 font-medium italic">
+                            Terminates: {subscription.endDate ? new Date(subscription.endDate).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A'}
+                          </p>
+                          {subscription.daysLeft <= 7 && (
+                            <span className="text-[9px] font-bold text-red-500 uppercase">Renew Soon</span>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>

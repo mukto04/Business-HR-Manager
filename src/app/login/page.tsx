@@ -63,7 +63,9 @@ function LoginContent() {
         return;
       }
 
-      router.push("/dashboard");
+      // Redirect to branded dashboard URL for professional appearance
+      const companySlug = data.slug || slug;
+      router.push(`/${companySlug}-hr/dashboard`);
       router.refresh();
     } catch (err: any) {
       setError("Network error. Please try again.");

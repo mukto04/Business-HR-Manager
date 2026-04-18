@@ -35,25 +35,46 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Handle dynamic /[slug]-hr paths
-  if (pathname.endsWith("-hr")) {
-    const slug = pathname.replace("-hr", "").substring(1); // Remove leading slash and suffix
-    if (slug) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/login";
-      url.searchParams.set("slug", slug);
-      return NextResponse.rewrite(url);
+  // Handle dynamic /[slug]-hr paths (login page OR dashboard sub-paths)
+  if (pathname.includes("-hr")) {
+    const hrIdx = pathname.indexOf("-hr");
+    // Only match if -hr is followed by end or /
+    const afterHr = pathname.slice(hrIdx + 3); // what comes after "-hr"
+    if (afterHr === "" || afterHr.startsWith("/")) {
+      const slugPart = pathname.slice(1, hrIdx); // e.g. "appdevsuk"
+      if (slugPart) {
+        const url = request.nextUrl.clone();
+        if (afterHr === "" || afterHr === "/") {
+          // /appdevsuk-hr → rewrite to /login?slug=appdevsuk
+          url.pathname = "/login";
+          url.searchParams.set("slug", slugPart);
+        } else {
+          // /appdevsuk-hr/dashboard → rewrite to /dashboard
+          // /appdevsuk-hr/employees → rewrite to /employees
+          url.pathname = afterHr; // e.g. "/dashboard"
+          url.searchParams.delete("slug");
+        }
+        return NextResponse.rewrite(url);
+      }
     }
   }
 
   // Handle dynamic /[slug]-employee paths
-  if (pathname.endsWith("-employee")) {
-    const slug = pathname.replace("-employee", "").substring(1);
-    if (slug) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/employee-login";
-      url.searchParams.set("slug", slug);
-      return NextResponse.rewrite(url);
+  if (pathname.includes("-employee")) {
+    const empIdx = pathname.indexOf("-employee");
+    const afterEmp = pathname.slice(empIdx + 9);
+    if (afterEmp === "" || afterEmp.startsWith("/")) {
+      const slugPart = pathname.slice(1, empIdx);
+      if (slugPart) {
+        const url = request.nextUrl.clone();
+        if (afterEmp === "" || afterEmp === "/") {
+          url.pathname = "/employee-login";
+          url.searchParams.set("slug", slugPart);
+        } else {
+          url.pathname = afterEmp;
+        }
+        return NextResponse.rewrite(url);
+      }
     }
   }
 

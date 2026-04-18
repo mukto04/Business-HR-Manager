@@ -14,11 +14,13 @@ export async function GET() {
 
     // 1. Get Tenant Details from Session/MasterDB for Subscription & Access Info
     const cookieStore = await cookies();
-    const token = cookieStore.get("hr_session")?.value || cookieStore.get("employee_session")?.value;
+    const token = cookieStore.get("hr_auth_token")?.value || cookieStore.get("employee_session")?.value;
     let subscriptionInfo = null;
 
     if (token) {
-      const secret = new TextEncoder().encode(process.env.SESSION_SECRET || "fallback-secret");
+      const secret = new TextEncoder().encode(
+        process.env.SESSION_SECRET || "appdevs-hr-portal-secure-vault-998877"
+      );
       const { payload } = await jose.jwtVerify(token, secret);
       const slug = (payload.slug || payload.companyCode) as string;
 
