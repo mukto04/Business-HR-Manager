@@ -35,7 +35,7 @@ const links = [
 
 export function Sidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: () => void }) {
   const pathname = usePathname();
-  const { data: session } = useAsyncData<{ companyName: string }>("/api/me", { companyName: "HR Portal" });
+  const { data: session } = useAsyncData<{ companyName: string; slug: string }>("/api/me", { companyName: "HR Portal", slug: "" });
 
   return (
     <>
