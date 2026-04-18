@@ -24,7 +24,8 @@ export async function middleware(request: NextRequest) {
   if (
     pathname.includes(".") || 
     pathname.startsWith("/_next") || 
-    pathname.startsWith("/api/setup")
+    pathname.startsWith("/api/setup") ||
+    pathname.startsWith("/api/super-admin/test-db")
   ) {
     return NextResponse.next();
   }

@@ -17,7 +17,10 @@ import {
   CheckCircle2,
   Edit2,
   Eye,
-  EyeOff
+  EyeOff,
+  Wifi,
+  WifiOff,
+  X
 } from "lucide-react";
 
 interface Tenant {
@@ -41,6 +44,8 @@ export default function TenantManagementPage() {
   const [activeTab, setActiveTab] = useState<"ACTIVE" | "HISTORY">("ACTIVE");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [dbTestStatus, setDbTestStatus] = useState<"idle" | "testing" | "success" | "error">("idle");
+  const [dbTestMessage, setDbTestMessage] = useState("");
 
   const [formData, setFormData] = useState({
     slug: "",
@@ -114,6 +119,34 @@ export default function TenantManagementPage() {
     }
   }
 
+  async function testDbConnection() {
+    if (!formData.dbUrl) {
+      setDbTestMessage("Please enter a connection string first.");
+      setDbTestStatus("error");
+      return;
+    }
+    setDbTestStatus("testing");
+    setDbTestMessage("");
+    try {
+      const res = await fetch("/api/super-admin/test-db", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dbUrl: formData.dbUrl }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setDbTestStatus("success");
+        setDbTestMessage(data.message || "Connection successful!");
+      } else {
+        setDbTestStatus("error");
+        setDbTestMessage(data.message || "Connection failed.");
+      }
+    } catch (e) {
+      setDbTestStatus("error");
+      setDbTestMessage("Network error. Could not test connection.");
+    }
+  }
+
   async function handleFormSubmit(e: React.FormEvent) {
     e.preventDefault();
     setIsSubmitting(true);
@@ -135,6 +168,8 @@ export default function TenantManagementPage() {
 
       setShowModal(false);
       setEditingTenant(null);
+      setDbTestStatus("idle");
+      setDbTestMessage("");
       setFormData({ 
         slug: "", 
         companyName: "", 
@@ -389,114 +424,145 @@ export default function TenantManagementPage() {
 
       {/* Manual Add/Edit Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="bg-slate-800 px-8 py-6 flex items-center justify-between border-b border-slate-700">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={(e) => { if (e.target === e.currentTarget) { setShowModal(false); setDbTestStatus("idle"); setDbTestMessage(""); } }}>
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-xl shadow-2xl flex flex-col animate-in zoom-in-95 duration-200" style={{maxHeight: 'calc(100vh - 2rem)'}}>
+            {/* Modal Header - Fixed */}
+            <div className="bg-slate-800 px-8 py-5 flex items-center justify-between border-b border-slate-700 rounded-t-3xl flex-shrink-0">
                <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                 <Building2 className="w-5 h-5 text-red-500" /> {editingTenant ? "Edit Tenant Profile" : "Onboard Tenant"}
+                 <Building2 className="w-5 h-5 text-red-500" /> {editingTenant ? "Edit Tenant Profile" : "Onboard New Tenant"}
                </h3>
-               <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-white">&times;</button>
+               <button onClick={() => { setShowModal(false); setDbTestStatus("idle"); setDbTestMessage(""); }} className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-all">
+                 <X className="w-5 h-5" />
+               </button>
             </div>
             
-            <form onSubmit={handleFormSubmit} className="p-8 space-y-5">
-              <div className="grid grid-cols-1 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Company Name</label>
-                  <input 
-                    required 
-                    placeholder="Apple Inc."
-                    value={formData.companyName}
-                    onChange={(e) => setFormData({...formData, companyName: e.target.value})}
-                    className="w-full bg-black border border-slate-700 rounded-xl px-4 py-2.5 text-white outline-none focus:ring-2 focus:ring-red-600 transition-all" />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Login URL Slug (Branding)</label>
-                  <div className="flex items-center bg-black border border-slate-700 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-red-600 transition-all">
-                    <span className="pl-4 text-slate-500 font-mono text-sm select-none">/</span>
+            {/* Modal Body - Scrollable */}
+            <div className="overflow-y-auto flex-1 p-8">
+              <form id="tenant-form" onSubmit={handleFormSubmit} className="space-y-5">
+                <div className="grid grid-cols-1 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Company Name</label>
                     <input 
                       required 
-                      placeholder="apple"
-                      value={formData.slug}
-                      onChange={(e) => setFormData({...formData, slug: e.target.value.toLowerCase().trim().replace(/\s+/g, "-")})}
-                      className="w-full bg-transparent px-2 py-2.5 text-white outline-none font-mono" />
-                    <span className="pr-4 py-2.5 bg-slate-800/50 text-red-500 font-bold font-mono text-sm select-none border-l border-slate-700 whitespace-nowrap">
-                      -hr
-                    </span>
+                      placeholder="Apple Inc."
+                      value={formData.companyName}
+                      onChange={(e) => setFormData({...formData, companyName: e.target.value})}
+                      className="w-full bg-black border border-slate-700 rounded-xl px-4 py-2.5 text-white outline-none focus:ring-2 focus:ring-red-600 transition-all" />
                   </div>
-                  <p className="text-[10px] text-slate-500 px-1">This defines your unique login URL e.g. /{formData.slug || "company"}-hr</p>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Login URL Slug (Branding)</label>
+                    <div className="flex items-center bg-black border border-slate-700 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-red-600 transition-all">
+                      <span className="pl-4 text-slate-500 font-mono text-sm select-none">/</span>
+                      <input 
+                        required 
+                        placeholder="apple"
+                        value={formData.slug}
+                        onChange={(e) => setFormData({...formData, slug: e.target.value.toLowerCase().trim().replace(/\s+/g, "-")})}
+                        className="w-full bg-transparent px-2 py-2.5 text-white outline-none font-mono" />
+                      <span className="pr-4 py-2.5 bg-slate-800/50 text-red-500 font-bold font-mono text-sm select-none border-l border-slate-700 whitespace-nowrap">
+                        -hr
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-slate-500 px-1">Unique login URL: /{formData.slug || "company"}-hr</p>
+                  </div>
                 </div>
-              </div>
 
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">MongoDB Connection String</label>
-                <input 
-                  required 
-                  placeholder="mongodb+srv://..."
-                  value={formData.dbUrl}
-                  onChange={(e) => setFormData({...formData, dbUrl: e.target.value})}
-                  className="w-full bg-black border border-slate-700 rounded-xl px-4 py-2.5 text-white outline-none focus:ring-2 focus:ring-red-600 transition-all font-mono text-xs" />
-                <p className="text-[10px] text-slate-500 px-1">Must include database name after .net/ (e.g. /hr_db?appName=...)</p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Initial Admin Username</label>
-                  <input 
-                    required 
-                    value={formData.adminUsername}
-                    onChange={(e) => setFormData({...formData, adminUsername: e.target.value})}
-                    className="w-full bg-black border border-slate-700 rounded-xl px-4 py-2.5 text-white outline-none focus:ring-2 focus:ring-red-600 transition-all" />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Initial Admin Password</label>
-                  <div className="relative">
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">MongoDB Connection String</label>
+                  <div className="flex gap-2">
                     <input 
                       required 
-                      type={showPassword ? "text" : "password"}
-                      value={formData.adminPassword}
-                      onChange={(e) => setFormData({...formData, adminPassword: e.target.value})}
-                      className="w-full bg-black border border-slate-700 rounded-xl pl-4 pr-12 py-2.5 text-white outline-none focus:ring-2 focus:ring-red-600 transition-all font-mono" />
+                      placeholder="mongodb+srv://..."
+                      value={formData.dbUrl}
+                      onChange={(e) => { setFormData({...formData, dbUrl: e.target.value}); setDbTestStatus("idle"); setDbTestMessage(""); }}
+                      className="flex-1 bg-black border border-slate-700 rounded-xl px-4 py-2.5 text-white outline-none focus:ring-2 focus:ring-red-600 transition-all font-mono text-xs min-w-0" />
                     <button
                       type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-slate-500 hover:text-white transition-colors"
+                      onClick={testDbConnection}
+                      disabled={dbTestStatus === "testing" || !formData.dbUrl}
+                      className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-xs font-bold text-slate-300 hover:text-white hover:border-slate-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all whitespace-nowrap"
                     >
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      {dbTestStatus === "testing" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wifi className="w-4 h-4" />}
+                      Test
                     </button>
                   </div>
+                  <p className="text-[10px] text-slate-500 px-1">Must include database name after .net/ (e.g. /hr_db?appName=...)</p>
+                  {/* DB Test Result */}
+                  {dbTestStatus !== "idle" && dbTestMessage && (
+                    <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium ${
+                      dbTestStatus === "success" ? "bg-green-500/10 border border-green-500/20 text-green-400" :
+                      dbTestStatus === "error" ? "bg-red-500/10 border border-red-500/20 text-red-400" :
+                      "bg-slate-800 text-slate-400"
+                    }`}>
+                      {dbTestStatus === "success" ? <Wifi className="w-3.5 h-3.5 flex-shrink-0" /> : <WifiOff className="w-3.5 h-3.5 flex-shrink-0" />}
+                      {dbTestMessage}
+                    </div>
+                  )}
                 </div>
-              </div>
 
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Subscription Duration (Add/Extend)</label>
-                <select 
-                  value={formData.subscriptionDays}
-                  onChange={(e) => setFormData({...formData, subscriptionDays: e.target.value})}
-                  className="w-full bg-black border border-slate-700 rounded-xl px-4 py-2.5 text-white outline-none focus:ring-2 focus:ring-red-600 transition-all"
-                >
-                  <option value="30">1 Month (30 Days)</option>
-                  <option value="90">3 Months (90 Days)</option>
-                  <option value="180">6 Months (180 Days)</option>
-                  <option value="365">1 Year (365 Days)</option>
-                  {editingTenant && <option value="0">Leave Unchanged</option>}
-                </select>
-                <p className="text-[10px] text-slate-500 px-1">
-                  {editingTenant ? "Choosing a duration will extend the current expiry date." : "Initial validity from deployment date."}
-                </p>
-              </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Initial Admin Username</label>
+                    <input 
+                      required 
+                      value={formData.adminUsername}
+                      onChange={(e) => setFormData({...formData, adminUsername: e.target.value})}
+                      className="w-full bg-black border border-slate-700 rounded-xl px-4 py-2.5 text-white outline-none focus:ring-2 focus:ring-red-600 transition-all" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Initial Admin Password</label>
+                    <div className="relative">
+                      <input 
+                        required 
+                        type={showPassword ? "text" : "password"}
+                        value={formData.adminPassword}
+                        onChange={(e) => setFormData({...formData, adminPassword: e.target.value})}
+                        className="w-full bg-black border border-slate-700 rounded-xl pl-4 pr-12 py-2.5 text-white outline-none focus:ring-2 focus:ring-red-600 transition-all font-mono" />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-slate-500 hover:text-white transition-colors"
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
 
-              <div className="pt-4 flex items-center justify-end gap-3">
-                 <button 
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="px-6 py-2.5 rounded-xl font-bold text-slate-400 hover:text-white transition-colors">Cancel</button>
-                 <button 
-                  disabled={isSubmitting}
-                  className="bg-red-600 hover:bg-red-700 text-white font-bold px-8 py-2.5 rounded-xl transition-all shadow-lg flex items-center gap-2">
-                   {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin text-white" /> : (editingTenant ? "Save Changes" : "Deploy Instance")}
-                 </button>
-              </div>
-            </form>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Subscription Duration (Add/Extend)</label>
+                  <select 
+                    value={formData.subscriptionDays}
+                    onChange={(e) => setFormData({...formData, subscriptionDays: e.target.value})}
+                    className="w-full bg-black border border-slate-700 rounded-xl px-4 py-2.5 text-white outline-none focus:ring-2 focus:ring-red-600 transition-all"
+                  >
+                    <option value="30">1 Month (30 Days)</option>
+                    <option value="90">3 Months (90 Days)</option>
+                    <option value="180">6 Months (180 Days)</option>
+                    <option value="365">1 Year (365 Days)</option>
+                    {editingTenant && <option value="0">Leave Unchanged</option>}
+                  </select>
+                  <p className="text-[10px] text-slate-500 px-1">
+                    {editingTenant ? "Choosing a duration will extend the current expiry date." : "Initial validity from deployment date."}
+                  </p>
+                </div>
+              </form>
+            </div>
+
+            {/* Modal Footer - Fixed */}
+            <div className="px-8 py-5 border-t border-slate-800 flex items-center justify-end gap-3 bg-slate-900/80 rounded-b-3xl flex-shrink-0">
+               <button 
+                type="button"
+                onClick={() => { setShowModal(false); setDbTestStatus("idle"); setDbTestMessage(""); }}
+                className="px-6 py-2.5 rounded-xl font-bold text-slate-400 hover:text-white transition-colors">Cancel</button>
+               <button 
+                type="submit"
+                form="tenant-form"
+                disabled={isSubmitting}
+                className="bg-red-600 hover:bg-red-700 text-white font-bold px-8 py-2.5 rounded-xl transition-all shadow-lg flex items-center gap-2">
+                 {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin text-white" /> : (editingTenant ? "Save Changes" : "Deploy Instance")}
+               </button>
+            </div>
           </div>
         </div>
       )}

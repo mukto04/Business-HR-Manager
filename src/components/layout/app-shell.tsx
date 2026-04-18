@@ -10,7 +10,11 @@ const AUTH_ROUTES = ["/", "/login", "/employee-login", "/employee", "/setup", "/
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const isAuthPage = AUTH_ROUTES.some(r => pathname === r || pathname.startsWith(`${r}/`));
+
+  // Auth pages: known routes + any branded company URLs (e.g. /slug-hr, /slug-employee)
+  const isBrandedHrUrl = pathname.endsWith("-hr");
+  const isBrandedEmpUrl = pathname.endsWith("-employee");
+  const isAuthPage = isBrandedHrUrl || isBrandedEmpUrl || AUTH_ROUTES.some(r => pathname === r || pathname.startsWith(`${r}/`));
 
   useEffect(() => {
     setIsSidebarOpen(false);
