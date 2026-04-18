@@ -1,28 +1,21 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { masterPrisma } from "@/lib/prisma";
-import { cookies } from "next/headers";
-import * as jose from "jose";
 import { MongoClient } from "mongodb";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("hr_auth_token")?.value;
+    const { searchParams } = new URL(request.url);
+    const slug = searchParams.get("slug")?.toLowerCase();
 
-    if (!token) {
-      return NextResponse.json({ error: "Session not found. Please log in first." }, { status: 401 });
+    if (!slug) {
+      return NextResponse.json({ error: "Please provide a slug parameter. Example: ?slug=appdevsuk" }, { status: 400 });
     }
 
-    // 1. Resolve Slug
-    const secret = new TextEncoder().encode(process.env.SESSION_SECRET || "appdevs-hr-portal-secure-vault-998877");
-    const { payload } = await jose.jwtVerify(token, secret);
-    const slug = payload.slug as string;
-
-    // 2. Resolve DB URL from Master
+    // 1. Resolve DB URL from Master
     const tenant = await masterPrisma.tenant.findUnique({ where: { slug } });
-    if (!tenant) return NextResponse.json({ error: "Tenant not found." });
+    if (!tenant) return NextResponse.json({ error: `Tenant with slug '${slug}' not found in master database.` });
 
     const URI = tenant.dbUrl;
     
