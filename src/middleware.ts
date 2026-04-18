@@ -9,7 +9,8 @@ const PUBLIC_PATHS = [
   "/api/auth/employee-login",
   "/super-admin/login",
   "/api/super-admin/login",
-  "/public"
+  "/public",
+  "/api/debug-db"
 ];
 
 // Helper to check if a path exactly match or is a subpath of a prefix (e.g. /employee match /employee/1 but not /employees)
