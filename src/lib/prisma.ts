@@ -61,7 +61,11 @@ export async function getTenantPrisma() {
       throw new Error(`Database URL missing for company: ${slug}`);
     }
 
-    console.log(`[getTenantPrisma] Routing to dynamic DB for: ${slug}`);
+    // Extract DB name for logging (professional troubleshooting)
+    const dbNameMatch = dbUrl.match(/\.net\/([^?]+)/);
+    const dbName = dbNameMatch ? dbNameMatch[1] : "UNKNOWN";
+
+    console.log(`[getTenantPrisma] Routing: ${slug} -> DB: ${dbName}`);
 
     // --- Subscription & Account Status Check ---
     const isStatusFrozen = tenantRecord.status === "FROZEN";
@@ -72,12 +76,15 @@ export async function getTenantPrisma() {
     }
 
     // In production (Vercel), avoid global caching of PrismaClient instances
-    // as serverless functions have short lifetimes and may cause connection issues
     if (process.env.NODE_ENV === "production") {
       const client = new PrismaClient({
         datasources: { db: { url: dbUrl } },
         log: ["error"],
       });
+      
+      // Temporary Diagnostic: Try to list some data or log connection success
+      console.log(`[Prisma Diagnostic] Successfully initialized client for ${dbName}`);
+      
       return client;
     }
 

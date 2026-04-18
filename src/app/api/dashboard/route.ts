@@ -27,6 +27,8 @@ export async function GET() {
       })
     ]);
 
+    console.log(`[Dashboard Debug] Found ${employees.length} employees in tenant DB.`);
+
     const birthdays = employees.filter((employee) => new Date(employee.dateOfBirth).getMonth() === now.getMonth());
     const anniversaries = employees.filter((employee) => new Date(employee.joiningDate).getMonth() === now.getMonth());
     const holidaysThisMonth = holidays.filter((holiday) => new Date(holiday.date).getMonth() === now.getMonth()).length;
