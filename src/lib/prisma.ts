@@ -40,27 +40,35 @@ export async function getTenantPrisma() {
     const secret = new TextEncoder().encode(secretStr);
     const { payload } = await jose.jwtVerify(token, secret);
     
-    const dbUrl = payload.dbUrl as string;
     const slug = (payload.slug || payload.companyCode) as string;
 
-    if (!dbUrl) {
-      throw new Error("Tenant Database URL not found in session.");
+    if (!slug) {
+      throw new Error("Tenant identifier (slug) not found in session.");
     }
 
-    console.log(`[getTenantPrisma] Resolving tenant: ${slug}, dbUrl prefix: ${dbUrl.substring(0, 30)}...`);
-
-    // --- Subscription Enforcement Check ---
+    // --- Dynamic Routing: Always fetch fresh DB URL from Master DB ---
     const tenantRecord = await masterPrisma.tenant.findUnique({
-      where: slug ? { slug } : { slug: "UNKNOWN" }
+      where: { slug: slug.toLowerCase() }
     });
 
-    if (tenantRecord) {
-      const isStatusFrozen = tenantRecord.status === "FROZEN";
-      const isExpired = tenantRecord.subscriptionEnd && new Date(tenantRecord.subscriptionEnd) < new Date();
+    if (!tenantRecord) {
+      throw new Error(`Tenant company "${slug}" not found in master records.`);
+    }
 
-      if (isStatusFrozen || isExpired) {
-        throw new Error("ACCOUNT_FROZEN: Your subscription has expired or this account has been frozen by the administrator.");
-      }
+    const dbUrl = tenantRecord.dbUrl;
+
+    if (!dbUrl) {
+      throw new Error(`Database URL missing for company: ${slug}`);
+    }
+
+    console.log(`[getTenantPrisma] Routing to dynamic DB for: ${slug}`);
+
+    // --- Subscription & Account Status Check ---
+    const isStatusFrozen = tenantRecord.status === "FROZEN";
+    const isExpired = tenantRecord.subscriptionEnd && new Date(tenantRecord.subscriptionEnd) < new Date();
+
+    if (isStatusFrozen || isExpired) {
+      throw new Error("ACCOUNT_FROZEN: Your subscription has expired or this account has been frozen by the administrator.");
     }
 
     // In production (Vercel), avoid global caching of PrismaClient instances

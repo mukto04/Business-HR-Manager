@@ -47,7 +47,6 @@ export async function POST(request: NextRequest) {
     const token = await new jose.SignJWT({
       slug: tenant.slug,
       companyName: tenant.companyName,
-      dbUrl: tenant.dbUrl,
       role: "HR_ADMIN"
     })
       .setProtectedHeader({ alg: "HS256" })
