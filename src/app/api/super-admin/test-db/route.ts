@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { MongoClient } from "mongodb";
+import { PrismaClient } from "@prisma/client";
 
 export async function POST(request: NextRequest) {
+  let prisma: PrismaClient | null = null;
+
   try {
     const { dbUrl } = await request.json();
 
@@ -9,22 +11,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: "Missing or invalid connection string." }, { status: 400 });
     }
 
-    // Try to connect with a short timeout
-    const client = new MongoClient(dbUrl, {
-      serverSelectionTimeoutMS: 8000,
-      connectTimeoutMS: 8000,
+    // Dynamically create a Prisma client with the provided URL
+    prisma = new PrismaClient({
+      datasources: {
+        db: { url: dbUrl },
+      },
     });
 
-    await client.connect();
-    await client.db().command({ ping: 1 });
-    await client.close();
+    // Attempt to connect and ping
+    await prisma.$connect();
+    await prisma.$runCommandRaw({ ping: 1 });
 
     return NextResponse.json({ message: "✓ Connection successful! Database is reachable." }, { status: 200 });
   } catch (error: any) {
     console.error("DB test error:", error.message);
+    const msg = error.message?.split("\n")[0] || "Unknown error";
     return NextResponse.json(
-      { message: `Connection failed: ${error.message?.split("\n")[0] || "Unknown error"}` },
+      { message: `Connection failed: ${msg}` },
       { status: 500 }
     );
+  } finally {
+    if (prisma) {
+      await prisma.$disconnect().catch(() => {});
+    }
   }
 }
