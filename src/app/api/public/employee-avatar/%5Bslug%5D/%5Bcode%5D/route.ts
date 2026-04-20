@@ -3,7 +3,7 @@ import { getPrismaBySlug } from "@/lib/prisma";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ slug: string; code: string }> }
+  { params }: { params: Promise<any> }
 ) {
   try {
     const { slug, code } = await params;
