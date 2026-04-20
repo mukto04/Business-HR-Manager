@@ -23,24 +23,28 @@ if (!globalForPrisma.tenantClients) {
   globalForPrisma.tenantClients = new Map();
 }
 
+export async function getTenantSlug() {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("hr_auth_token")?.value || cookieStore.get("employee_session")?.value;
+
+  if (!token) {
+    throw new Error("No active session.");
+  }
+
+  const secretStr = process.env.SESSION_SECRET || "appdevs-hr-portal-secure-vault-998877";
+  const secret = new TextEncoder().encode(secretStr);
+  const { payload } = await jose.jwtVerify(token, secret);
+  
+  return (payload.slug || payload.companyCode) as string;
+}
+
 /**
  * Dynamically returns a PrismaClient for the specific tenant.
  * It reads the database URL from the user's secure session cookie.
  */
 export async function getTenantPrisma() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("hr_auth_token")?.value || cookieStore.get("employee_session")?.value;
-
-  if (!token) {
-    throw new Error("No active session. Database connection unavailable.");
-  }
-
   try {
-    const secretStr = process.env.SESSION_SECRET || "appdevs-hr-portal-secure-vault-998877";
-    const secret = new TextEncoder().encode(secretStr);
-    const { payload } = await jose.jwtVerify(token, secret);
-    
-    const slug = (payload.slug || payload.companyCode) as string;
+    const slug = await getTenantSlug();
 
     if (!slug) {
       throw new Error("Tenant identifier (slug) not found in session.");
@@ -107,6 +111,41 @@ export async function getTenantPrisma() {
     }
     throw new Error(`Failed to resolve dynamic database connection: ${error.message}`);
   }
+}
+
+/**
+ * Public helper to get a PrismaClient for a tenant based on slug.
+ * Useful for public routes (login branding, public avatars) where no session exists yet.
+ */
+export async function getPrismaBySlug(slug: string) {
+  const tenantRecord = await masterPrisma.tenant.findUnique({
+    where: { slug: slug.toLowerCase() }
+  });
+
+  if (!tenantRecord || tenantRecord.status === "FROZEN") {
+    throw new Error("Tenant not found or account frozen");
+  }
+
+  const dbUrl = tenantRecord.dbUrl;
+  
+  if (process.env.NODE_ENV === "production") {
+    return new PrismaClient({
+      datasources: { db: { url: dbUrl } },
+      log: ["error"],
+    });
+  }
+
+  if (globalForPrisma.tenantClients.has(dbUrl)) {
+    return globalForPrisma.tenantClients.get(dbUrl)!;
+  }
+
+  const client = new PrismaClient({
+    datasources: { db: { url: dbUrl } },
+    log: ["error"],
+  });
+
+  globalForPrisma.tenantClients.set(dbUrl, client);
+  return client;
 }
 
 // Keep the global prisma exported (but deprecated) to avoid immediate breakages

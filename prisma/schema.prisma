@@ -27,6 +27,7 @@ model Employee {
   nidNumber       String?
   educationStatus String?
   password        String            @default("appdevs123456")
+  image           String?           
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
   leaveBalances   LeaveBalance[]
@@ -162,6 +163,35 @@ model OfficeCost {
   @@unique([month, year, day])
 }
 
+model CostCategory {
+  id           String            @id @default(auto()) @map("_id") @db.ObjectId
+  name         String
+  type         String            @default("EXPENSE") // INCOME, EXPENSE
+  color        String?           @default("#64748b")
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  transactions CostTransaction[]
+
+  @@unique([name])
+}
+
+model CostTransaction {
+  id          String       @id @default(auto()) @map("_id") @db.ObjectId
+  date        DateTime     @default(now())
+  month       Int
+  year        Int
+  amount      Float
+  type        String       @default("EXPENSE") // INCOME, EXPENSE
+  categoryId  String       @db.ObjectId
+  category    CostCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  details     String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([month, year])
+  @@index([categoryId])
+}
+
 model Attendance {
   id          String   @id @default(auto()) @map("_id") @db.ObjectId
   employeeId  String   @db.ObjectId
@@ -201,6 +231,9 @@ model Tenant {
   slug           String    @unique
   companyName    String
   dbUrl          String
+  planName       String?   @default("Starter")
+  permissions    Json?
+  employeeLimit  Int       @default(50)
   status         String    @default("ACTIVE") // ACTIVE, FROZEN
   adminUsername  String
   adminPassword  String
@@ -228,7 +261,21 @@ model TenantSettings {
   defaultInTime  String   @default("09:00 AM")
   defaultOutTime String   @default("06:00 PM")
   avgRequestTime String   @default("09:00 AM")
+  googleSheetUrl String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+}
+
+model LandingPageContent {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  section   String   @unique
+  content   Json
+  updatedAt DateTime @updatedAt
+}
+
+model MasterAdmin {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  password  String   @default("superadmin123")
+  updatedAt DateTime @updatedAt
 }
 

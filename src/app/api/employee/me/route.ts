@@ -28,7 +28,8 @@ export async function GET() {
         guardianPhone: true,
         nidNumber: true,
         educationStatus: true,
-        fingerprintId: true
+        fingerprintId: true,
+        image: true
       }
     });
 

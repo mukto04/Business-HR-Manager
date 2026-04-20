@@ -1,5 +1,10 @@
 import { AdvanceSalaryClient } from "@/modules/advance-salary/advance-salary-client";
+import { ServiceGuard } from "@/components/shared/service-guard";
 
 export default function AdvanceSalaryPage() {
-  return <AdvanceSalaryClient />;
+  return (
+    <ServiceGuard id="advances">
+      <AdvanceSalaryClient />
+    </ServiceGuard>
+  );
 }

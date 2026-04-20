@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Printer, Loader2, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { ServiceGuard } from "@/components/shared/service-guard";
 
 export default function AttendanceReportPage() {
   const [loading, setLoading] = useState(true);
@@ -92,6 +93,7 @@ export default function AttendanceReportPage() {
   const monthName = months.find(m => m.value === month)?.label;
 
   return (
+    <ServiceGuard id="attendance">
     <div className="space-y-6 print:space-y-0 print:p-0">
       <div className="print:hidden text-slate-700">
         <PageHeader
@@ -311,5 +313,6 @@ export default function AttendanceReportPage() {
         }
       `}</style>
     </div>
+    </ServiceGuard>
   );
 }

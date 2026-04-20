@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { useDialog } from "@/components/ui/dialog-provider";
 import { Plus, Edit2, Trash2, RefreshCw, Search, Settings2 } from "lucide-react";
+import { ServiceGuard } from "@/components/shared/service-guard";
 import Link from "next/link";
 
 export default function AttendancePage() {
@@ -270,6 +271,7 @@ export default function AttendancePage() {
   };
 
   return (
+    <ServiceGuard id="attendance">
     <div className="space-y-6">
       <PageHeader
         title="Attendance Tracking"
@@ -529,5 +531,6 @@ export default function AttendancePage() {
       </Modal>
 
     </div>
+    </ServiceGuard>
   );
 }

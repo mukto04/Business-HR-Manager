@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useDialog } from "@/components/ui/dialog-provider";
 import { CheckCircle, XCircle, Clock, Search, Filter } from "lucide-react";
+import { ServiceGuard } from "@/components/shared/service-guard";
 
 export default function AttendanceRequestsPage() {
   const [requests, setRequests] = useState<any[]>([]);
@@ -110,6 +111,7 @@ export default function AttendanceRequestsPage() {
   };
 
   return (
+    <ServiceGuard id="attendance">
     <div className="space-y-6">
       <PageHeader
         title="Manual Attendance Requests"
@@ -261,5 +263,6 @@ export default function AttendanceRequestsPage() {
         </div>
       </Modal>
     </div>
+    </ServiceGuard>
   );
 }

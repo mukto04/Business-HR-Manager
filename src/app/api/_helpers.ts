@@ -112,3 +112,12 @@ export const officeCostSchema = z.object({
   capitalCost: z.coerce.number().min(0).default(0),
   capitalDetail: z.string().nullable().optional()
 });
+
+export const costTransactionSchema = z.object({
+  id: z.string().optional(),
+  date: z.union([z.string(), z.date()]),
+  amount: z.coerce.number().min(0),
+  categoryId: z.string().min(1),
+  type: z.enum(["INCOME", "EXPENSE"]),
+  details: z.string().nullable().optional()
+});

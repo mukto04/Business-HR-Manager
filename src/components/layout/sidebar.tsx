@@ -2,18 +2,20 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  CalendarDays,
-  Coins,
-  CreditCard,
-  LayoutDashboard,
-  ShieldCheck,
-  Users,
-  Banknote,
-  Receipt,
-  X,
+import { 
+  CalendarDays, 
+  Coins, 
+  CreditCard, 
+  LayoutDashboard, 
+  ShieldCheck, 
+  Users, 
+  Banknote, 
+  Receipt, 
+  X, 
+  ClipboardList,
+  Lock,
   Clock,
-  ClipboardList
+  FileSpreadsheet
 } from "lucide-react";
 import { cn } from "@/utils/classnames";
 import { useAsyncData } from "@/modules/shared/use-async-data";
@@ -21,21 +23,22 @@ import { useAsyncData } from "@/modules/shared/use-async-data";
 const links = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/employees", label: "Employees", icon: Users },
-  { href: "/attendance", label: "Attendance", icon: Clock },
-  { href: "/attendance/requests", label: "Manual Requests", icon: Clock },
-  { href: "/attendance/report", label: "Attendance Report", icon: ClipboardList },
-  { href: "/holidays", label: "Holidays", icon: CalendarDays },
-  { href: "/leaves", label: "Leave Balance", icon: ShieldCheck },
-  { href: "/loans", label: "Loans", icon: CreditCard },
-  { href: "/advance-salary", label: "Advance Salary", icon: Banknote },
-  { href: "/salary", label: "Salary Structure", icon: Coins },
-  { href: "/monthly-salary", label: "Monthly Salary", icon: Coins },
-  { href: "/office-cost", label: "Office Cost", icon: Receipt }
+  { href: "/attendance", label: "Attendance", icon: Clock, serviceId: "attendance" },
+  { href: "/attendance/requests", label: "Manual Requests", icon: Clock, serviceId: "attendance" },
+  { href: "/attendance/report", label: "Attendance Report", icon: ClipboardList, serviceId: "attendance" },
+  { href: "/holidays", label: "Holidays", icon: CalendarDays, serviceId: "leaves" },
+  { href: "/leaves", label: "Leave Balance", icon: ShieldCheck, serviceId: "leaves" },
+  { href: "/loans", label: "Loans", icon: CreditCard, serviceId: "loans" },
+  { href: "/advance-salary", label: "Advance Salary", icon: Banknote, serviceId: "advances" },
+  { href: "/salary", label: "Salary Structure", icon: Coins, serviceId: "payroll" },
+  { href: "/monthly-salary", label: "Monthly Salary", icon: Coins, serviceId: "payroll" },
+  { href: "/office-cost", label: "Office Cost Calculator", icon: Receipt, serviceId: "costs" },
+  { href: "/google-sheet", label: "Company Spreadsheet", icon: FileSpreadsheet, serviceId: "spreadsheets" }
 ];
 
 export function Sidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: () => void }) {
   const pathname = usePathname();
-  const { data: session } = useAsyncData<{ companyName: string; slug: string }>("/api/me", { companyName: "HR Portal", slug: "" });
+  const { data: session } = useAsyncData<any>("/api/me", { companyName: "HR Portal", slug: "" });
 
   return (
     <>
@@ -52,29 +55,37 @@ export function Sidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: () =>
         <button onClick={onClose} className="absolute right-4 top-6 lg:hidden text-slate-400 hover:text-white">
           <X className="h-6 w-6" />
         </button>
-        <div className="border-b border-white/10 px-6 py-6">
+        <div className="border-b border-white/10 px-6 py-6 font-bold flex flex-col gap-1">
           <h2 className="text-xl font-bold truncate" title={session?.companyName}>
             {session?.companyName || "HR Portal"}
           </h2>
+          {session?.planName && (
+             <span className="text-[10px] text-red-500 uppercase tracking-widest">{session.planName} Plan</span>
+          )}
         </div>
 
-      <div className="flex-1 space-y-1 p-4">
-        {links.map(({ href, label, icon: Icon }) => {
+      <div className="flex-1 space-y-1 p-4 overflow-y-auto">
+        {links.map(({ href, label, icon: Icon, serviceId }) => {
           // Prefix the link with company slug if available for professional branded URL
           const brandedHref = session?.slug ? `/${session.slug}-hr${href}` : href;
           const active = pathname === href || pathname === brandedHref;
           
+          const isEnabled = !serviceId || session?.permissions?.[serviceId] !== false;
+
           return (
             <Link
               key={href}
               href={brandedHref}
               className={cn(
-                "flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition",
+                "flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition group",
                 active ? "bg-white text-slate-900" : "text-slate-300 hover:bg-white/10 hover:text-white"
               )}
             >
               <Icon className="h-4 w-4" />
-              {label}
+              <span className="flex-1">{label}</span>
+              {!isEnabled && (
+                 <Lock className="w-3 h-3 text-slate-500 group-hover:text-red-500 transition-colors" />
+              )}
             </Link>
           );
         })}

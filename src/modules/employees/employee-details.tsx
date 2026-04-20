@@ -7,6 +7,25 @@ import { Button } from "@/components/ui/button";
 export function EmployeeDetails({ employee, onClose }: { employee: Employee; onClose: () => void }) {
   return (
     <div className="space-y-4">
+      <div className="flex items-start gap-6 p-6 rounded-2xl border border-slate-100 bg-white shadow-sm">
+        <div className="w-24 h-24 rounded-3xl bg-indigo-50 flex items-center justify-center overflow-hidden border-2 border-indigo-100 shrink-0 shadow-lg">
+           {employee.image ? (
+             <img src={employee.image} alt={employee.name} className="w-full h-full object-cover" />
+           ) : (
+             <span className="text-3xl font-black text-indigo-300">{employee.name.charAt(0)}</span>
+           )}
+        </div>
+        <div className="flex-1 space-y-1">
+          <h3 className="text-2xl font-black text-slate-900 tracking-tight">{employee.name}</h3>
+          <p className="text-indigo-600 font-bold text-xs uppercase tracking-[0.2em]">{employee.designation}</p>
+          <div className="pt-2">
+             <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${employee.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                {employee.status}
+             </span>
+          </div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-2 gap-4 rounded-xl border border-border p-4 bg-slate-50/50 text-slate-900">
         <div>
           <p className="text-xs text-slate-500 font-medium uppercase tracking-wider mb-1">Employee ID</p>

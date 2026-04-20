@@ -20,7 +20,13 @@ import {
   EyeOff,
   Wifi,
   WifiOff,
-  X
+  X,
+  Clock,
+  CalendarDays,
+  Coins,
+  CreditCard,
+  Receipt,
+  FileSpreadsheet
 } from "lucide-react";
 
 interface Tenant {
@@ -29,6 +35,9 @@ interface Tenant {
   companyName: string;
   dbUrl: string;
   status: string;
+  planName?: string;
+  permissions?: any;
+  employeeLimit?: number;
   adminUsername: string;
   adminPassword?: string;
   subscriptionEnd?: string;
@@ -40,6 +49,7 @@ export default function TenantManagementPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [showModal, setShowModal] = useState(false);
+  const [showServicesModal, setShowServicesModal] = useState(false);
   const [editingTenant, setEditingTenant] = useState<Tenant | null>(null);
   const [activeTab, setActiveTab] = useState<"ACTIVE" | "HISTORY">("ACTIVE");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -51,9 +61,11 @@ export default function TenantManagementPage() {
     slug: "",
     companyName: "",
     dbUrl: "",
+    planName: "Starter",
     adminUsername: "admin",
     adminPassword: "",
-    subscriptionDays: "30"
+    subscriptionDays: "30",
+    employeeLimit: 50
   });
 
   const getDaysLeft = (endDate?: string) => {
@@ -174,9 +186,11 @@ export default function TenantManagementPage() {
         slug: "", 
         companyName: "", 
         dbUrl: "", 
+        planName: "Starter",
         adminUsername: "admin", 
         adminPassword: "",
-        subscriptionDays: "30" 
+        subscriptionDays: "30",
+        employeeLimit: 50
       });
       fetchTenants();
     } catch (e: any) {
@@ -194,7 +208,9 @@ export default function TenantManagementPage() {
       dbUrl: tenant.dbUrl,
       adminUsername: tenant.adminUsername,
       adminPassword: tenant.adminPassword || "",
-      subscriptionDays: "0" // Default to no change when editing
+      planName: tenant.planName || "Starter",
+      subscriptionDays: "0",
+      employeeLimit: tenant.employeeLimit || 50
     });
     setShowModal(true);
   }
@@ -209,21 +225,6 @@ export default function TenantManagementPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200">
-      {/* Navbar */}
-      <nav className="border-b border-slate-800 bg-slate-900/50 backdrop-blur-md sticky top-0 z-10 px-6 py-4">
-        <div className="flex justify-between items-center max-w-7xl mx-auto">
-          <div className="flex items-center gap-3">
-            <div className="bg-red-600 p-2 rounded-lg">
-              <ShieldCheck className="w-5 h-5 text-white" />
-            </div>
-            <h1 className="text-xl font-bold tracking-tight text-white">AppDevs HR Master Controller</h1>
-          </div>
-          <div className="flex items-center gap-4">
-             <span className="text-xs bg-red-600/10 text-red-500 px-3 py-1 rounded-full border border-red-600/20 font-mono">ROOT_LEVEL_ACCESS</span>
-          </div>
-        </div>
-      </nav>
-
       <main className="max-w-7xl mx-auto p-6 space-y-8">
         {/* Header Stats / Actions */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -273,9 +274,11 @@ export default function TenantManagementPage() {
                   slug: "", 
                   companyName: "", 
                   dbUrl: "", 
+                  planName: "Starter",
                   adminUsername: "admin", 
                   adminPassword: "",
-                  subscriptionDays: "30" 
+                  subscriptionDays: "30",
+                  employeeLimit: 50
                 });
                 setShowModal(true);
               }}
@@ -293,6 +296,7 @@ export default function TenantManagementPage() {
               <tr className="bg-black/50 text-slate-400 text-xs font-semibold uppercase tracking-widest border-b border-slate-800">
                 <th className="px-6 py-4">Company & Login URL</th>
                 <th className="px-6 py-4">Status</th>
+                <th className="px-6 py-4 text-center">Package</th>
                 <th className="px-6 py-4 text-center">Validity</th>
                 <th className="px-6 py-4 text-right">Service Actions</th>
               </tr>
@@ -346,6 +350,15 @@ export default function TenantManagementPage() {
                     })()}
                   </td>
                   <td className="px-6 py-5 text-center">
+                    <span className={`inline-flex px-3 py-1 rounded-lg text-xs font-bold border ${
+                      tenant.planName === 'Enterprise' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' :
+                      tenant.planName === 'Growth' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
+                      'bg-slate-800 text-slate-400 border-slate-700'
+                    }`}>
+                      {tenant.planName || 'Starter'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-5 text-center">
                     {(() => {
                       const daysLeft = getDaysLeft(tenant.subscriptionEnd);
                       const isNear = daysLeft > 0 && daysLeft <= 7;
@@ -371,11 +384,21 @@ export default function TenantManagementPage() {
                        {activeTab === "ACTIVE" ? (
                          <>
                            <button 
-                            onClick={() => openEditModal(tenant)}
-                            className="p-2 transition-all bg-slate-800 text-blue-500 hover:bg-blue-500/10 rounded-lg"
-                            title="Edit Connection"
+                            onClick={() => {
+                               setEditingTenant(tenant);
+                               setShowServicesModal(true);
+                            }}
+                            className="p-2 transition-all bg-slate-800 text-orange-500 hover:bg-orange-500/10 rounded-lg"
+                            title="Manage Services"
                            >
                             <Edit2 className="w-4 h-4" />
+                           </button>
+                           <button 
+                            onClick={() => openEditModal(tenant)}
+                            className="p-2 transition-all bg-slate-800 text-blue-500 hover:bg-blue-500/10 rounded-lg"
+                            title="Edit Core Settings"
+                           >
+                            <Database className="w-4 h-4" />
                            </button>
                            <button 
                             onClick={() => toggleFreeze(tenant)}
@@ -502,6 +525,42 @@ export default function TenantManagementPage() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Subscription Package</label>
+                    <select 
+                      value={formData.planName}
+                      onChange={(e) => setFormData({...formData, planName: e.target.value})}
+                      className="w-full bg-black border border-slate-700 rounded-xl px-4 py-2.5 text-white outline-none focus:ring-2 focus:ring-red-600 transition-all font-bold"
+                    >
+                      <option value="Starter">Starter Plan</option>
+                      <option value="Growth">Growth Plan</option>
+                      <option value="Enterprise">Enterprise Plan</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Extension (Days)</label>
+                    <select 
+                      value={formData.subscriptionDays}
+                      onChange={(e) => setFormData({...formData, subscriptionDays: e.target.value})}
+                      className="w-full bg-black border border-slate-700 rounded-xl px-4 py-2.5 text-white outline-none focus:ring-2 focus:ring-red-600 transition-all"
+                    >
+                      <option value="0">Unchanged</option>
+                      <option value="30">30 Days</option>
+                      <option value="90">90 Days</option>
+                      <option value="365">1 Year</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Base Employee Limit</label>
+                    <input 
+                      type="number"
+                      value={formData.employeeLimit}
+                      onChange={(e) => setFormData({...formData, employeeLimit: parseInt(e.target.value) || 0})}
+                      className="w-full bg-black border border-slate-700 rounded-xl px-4 py-2.5 text-white outline-none focus:ring-2 focus:ring-red-600 transition-all" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
                     <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Initial Admin Username</label>
                     <input 
                       required 
@@ -529,23 +588,7 @@ export default function TenantManagementPage() {
                   </div>
                 </div>
 
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Subscription Duration (Add/Extend)</label>
-                  <select 
-                    value={formData.subscriptionDays}
-                    onChange={(e) => setFormData({...formData, subscriptionDays: e.target.value})}
-                    className="w-full bg-black border border-slate-700 rounded-xl px-4 py-2.5 text-white outline-none focus:ring-2 focus:ring-red-600 transition-all"
-                  >
-                    <option value="30">1 Month (30 Days)</option>
-                    <option value="90">3 Months (90 Days)</option>
-                    <option value="180">6 Months (180 Days)</option>
-                    <option value="365">1 Year (365 Days)</option>
-                    {editingTenant && <option value="0">Leave Unchanged</option>}
-                  </select>
-                  <p className="text-[10px] text-slate-500 px-1">
-                    {editingTenant ? "Choosing a duration will extend the current expiry date." : "Initial validity from deployment date."}
-                  </p>
-                </div>
+
               </form>
             </div>
 
@@ -566,6 +609,139 @@ export default function TenantManagementPage() {
           </div>
         </div>
       )}
+      {/* Manage Services Modal */}
+      {showServicesModal && editingTenant && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/80 backdrop-blur-xl animate-in fade-in duration-300" onClick={(e) => { if (e.target === e.currentTarget) setShowServicesModal(false); }}>
+           <div className="bg-[#0B0F1A] border border-white/10 rounded-[3rem] w-full max-w-md shadow-[0_32px_64px_-16px_rgba(0,0,0,0.6)] flex flex-col overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-8 duration-500 max-h-[90vh]">
+              {/* Premium Header */}
+              <div className="relative p-8 pb-6 overflow-hidden">
+                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-orange-500/50 to-transparent"></div>
+                 <div className="flex items-center justify-between relative z-10">
+                    <div className="flex items-center gap-4">
+                       <div className="w-12 h-12 rounded-2xl bg-orange-500/10 flex items-center justify-center border border-orange-500/20 shadow-[0_0_20px_rgba(249,115,22,0.1)]">
+                          <ShieldCheck className="w-6 h-6 text-orange-500" />
+                       </div>
+                       <div>
+                          <h3 className="text-xl font-black text-white tracking-tight">Access Control</h3>
+                          <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-slate-500 mt-0.5">Instance: {editingTenant.slug}</p>
+                       </div>
+                    </div>
+                    <button onClick={() => setShowServicesModal(false)} className="w-10 h-10 flex items-center justify-center rounded-2xl bg-white/[0.03] border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 transition-all duration-300">
+                       <X className="w-5 h-5" />
+                    </button>
+                 </div>
+              </div>
+
+              {/* Service List with Custom Scrollbar */}
+              <div className="flex-1 overflow-y-auto px-8 py-2 space-y-3 custom-scrollbar">
+                 {[
+                   { id: 'attendance', label: 'Attendance & Reporting', desc: 'Punch logs & employee reports', icon: Clock },
+                   { id: 'leaves', label: 'Leave Management', desc: 'Balances & approval workflow', icon: CalendarDays },
+                   { id: 'payroll', label: 'Payroll & Salary', desc: 'Structures & monthly slips', icon: Coins },
+                   { id: 'loans', label: 'Loans & Advances', desc: 'Financial assistance tracking', icon: CreditCard },
+                   { id: 'costs', label: 'Office Cost Tracking', desc: 'Daily expense management', icon: Receipt },
+                   { id: 'spreadsheets', label: 'Company Spreadsheet', desc: 'External Google Sheets sync', icon: FileSpreadsheet },
+                 ].map((service) => {
+                    const isEnabled = editingTenant.permissions?.[service.id] !== false;
+                    return (
+                      <div key={service.id} className="group relative flex items-center justify-between p-4 bg-white/[0.02] border border-white/5 rounded-3xl hover:bg-white/[0.04] hover:border-white/10 transition-all duration-300">
+                         <div className="flex items-center gap-4">
+                           <div className={`p-2.5 rounded-xl border transition-colors duration-300 ${isEnabled ? 'bg-orange-500/5 border-orange-500/10 text-orange-500' : 'bg-slate-800/50 border-slate-700/50 text-slate-600'}`}>
+                             {service.icon ? <service.icon className="w-4 h-4" /> : <ShieldCheck className="w-4 h-4" />}
+                           </div>
+                           <div className="space-y-0.5">
+                              <div className="text-xs font-bold text-white group-hover:text-orange-400 transition-colors">{service.label}</div>
+                              <div className="text-[9px] text-slate-500 font-medium">{service.desc}</div>
+                           </div>
+                         </div>
+                         <button 
+                           onClick={async () => {
+                              const defaultPerms = {
+                                attendance: true,
+                                leaves: true,
+                                payroll: true,
+                                loans: true,
+                                advances: true,
+                                costs: true,
+                                spreadsheets: true
+                              };
+                              const currentPerms = (editingTenant.permissions && typeof editingTenant.permissions === 'object') ? editingTenant.permissions : defaultPerms;
+                              const newPermissions = { ...defaultPerms, ...currentPerms, [service.id]: !isEnabled };
+
+                              try {
+                                const res = await fetch("/api/super-admin/companies", {
+                                  method: "PUT",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ id: editingTenant.id, permissions: newPermissions }),
+                                });
+                                if (res.ok) {
+                                  setEditingTenant({ ...editingTenant, permissions: newPermissions });
+                                  fetchTenants();
+                                }
+                              } catch (e) {
+                                alert("Update failed");
+                              }
+                           }}
+                           className={`relative inline-flex h-6 w-11 items-center rounded-full transition-all duration-300 focus:outline-none ring-2 ring-offset-2 ring-offset-[#0B0F1A] ${isEnabled ? 'bg-orange-600 ring-orange-500/20' : 'bg-slate-800 ring-transparent'}`}
+                         >
+                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-lg transition-all duration-300 ${isEnabled ? 'translate-x-[1.375rem]' : 'translate-x-1'}`} />
+                         </button>
+                      </div>
+                    );
+                 })}
+              </div>
+
+              {/* Quota Footer */}
+              <div className="p-8 pt-6">
+                 <div className="relative group p-6 bg-gradient-to-br from-orange-500/10 to-transparent border border-orange-500/20 rounded-[2.5rem] overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/5 rounded-full blur-3xl -mr-16 -mt-16"></div>
+                    <div className="flex items-center justify-between relative z-10">
+                      <div className="space-y-1">
+                        <div className="text-[10px] font-black text-orange-500 uppercase tracking-[0.15em]">Employee Quota</div>
+                        <div className="text-xs text-slate-400 font-medium max-w-[120px] leading-tight">Total active seats allowed</div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input 
+                          type="number"
+                          id="employee-limit-input"
+                          defaultValue={editingTenant.employeeLimit || 50}
+                          className="w-16 bg-black/40 border border-white/10 rounded-2xl px-2 py-3 text-center text-white font-black text-lg outline-none focus:ring-2 focus:ring-orange-500/50 transition-all font-mono"
+                        />
+                        <button
+                          onClick={async () => {
+                            const input = document.getElementById('employee-limit-input') as HTMLInputElement;
+                            const newLimit = parseInt(input.value) || 0;
+                            try {
+                              const res = await fetch("/api/super-admin/companies", {
+                                method: "PUT",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ id: editingTenant.id, employeeLimit: newLimit }),
+                              });
+                              if (res.ok) {
+                                setEditingTenant({ ...editingTenant, employeeLimit: newLimit });
+                                fetchTenants();
+                              }
+                            } catch (e) {
+                              alert("Failed to update limit");
+                            }
+                          }}
+                          className="h-12 px-6 bg-orange-600 hover:bg-orange-500 text-white text-[10px] font-black tracking-widest rounded-2xl transition-all duration-300 shadow-[0_10px_20px_-5px_rgba(234,88,12,0.3)] active:scale-95"
+                        >
+                          SAVE
+                        </button>
+                      </div>
+                    </div>
+                 </div>
+                 <div className="mt-6 text-center">
+                    <p className="text-[9px] text-slate-500 font-bold uppercase tracking-[0.2em] opacity-40">
+                      Syncing live permissions across instances
+                    </p>
+                 </div>
+              </div>
+           </div>
+        </div>
+      )}
     </div>
   );
 }
+

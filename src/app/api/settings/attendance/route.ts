@@ -13,7 +13,8 @@ export async function GET() {
         data: {
           defaultInTime: "09:00 AM",
           defaultOutTime: "06:00 PM",
-          avgRequestTime: "09:00 AM"
+          avgRequestTime: "09:00 AM",
+          googleSheetUrl: null
         }
       });
     }
@@ -27,7 +28,7 @@ export async function GET() {
 
 export async function PUT(request: NextRequest) {
   try {
-    const { defaultInTime, defaultOutTime, avgRequestTime } = await request.json();
+    const { defaultInTime, defaultOutTime, avgRequestTime, googleSheetUrl } = await request.json();
     const prisma = await getTenantPrisma();
 
     if (!defaultInTime || !defaultOutTime || !avgRequestTime) {
@@ -40,11 +41,11 @@ export async function PUT(request: NextRequest) {
     if (settings) {
       settings = await prisma.tenantSettings.update({
         where: { id: settings.id },
-        data: { defaultInTime, defaultOutTime, avgRequestTime }
+        data: { defaultInTime, defaultOutTime, avgRequestTime, googleSheetUrl }
       });
     } else {
       settings = await prisma.tenantSettings.create({
-        data: { defaultInTime, defaultOutTime, avgRequestTime }
+        data: { defaultInTime, defaultOutTime, avgRequestTime, googleSheetUrl }
       });
     }
 

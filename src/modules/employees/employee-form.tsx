@@ -48,6 +48,7 @@ export function EmployeeForm({
     educationStatus: ""
   });
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (initialData) {
@@ -75,15 +76,19 @@ export function EmployeeForm({
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     setSaving(true);
+    setError(null);
     try {
       await onSubmit(form);
+    } catch (err: any) {
+      // Set the error state but don't console.error (to avoid dev overlay)
+      setError(err.message || "Failed to save employee. Please check your inputs.");
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <form className="space-y-4" onSubmit={handleSubmit}>
+    <form className="relative space-y-4" onSubmit={handleSubmit}>
       <div className="grid gap-x-6 gap-y-4 md:grid-cols-6 items-start">
         {/* Basic Info */}
         <div className="space-y-1.5 md:col-span-3">
@@ -180,6 +185,16 @@ export function EmployeeForm({
         <Button type="button" variant="secondary" onClick={onCancel}>Cancel</Button>
         <Button type="submit" disabled={saving}>{saving ? "Saving..." : "Save Employee"}</Button>
       </div>
+
+      {error && (
+        <div className="p-4 mt-2 rounded-xl bg-red-50 border border-red-200 text-red-600 animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <div className="flex items-center gap-2 font-bold mb-1">
+             <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+             Quota Exceeded
+          </div>
+          <p className="text-sm font-medium leading-relaxed">{error}</p>
+        </div>
+      )}
     </form>
   );
 }

@@ -28,8 +28,44 @@ export function Topbar({ onMenuClick }: { onMenuClick?: () => void }) {
 
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [isEditingAdmin, setIsEditingAdmin] = useState(false);
+  const [adminForm, setAdminForm] = useState({ username: "", password: "" });
+  const [isSavingAdmin, setIsSavingAdmin] = useState(false);
+
   const notifRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (subscription) {
+      setAdminForm({
+        username: subscription.adminUsername,
+        password: subscription.adminPassword || ""
+      });
+    }
+  }, [subscription]);
+
+  async function handleAdminUpdate() {
+    if (!adminForm.username || !adminForm.password) return;
+    setIsSavingAdmin(true);
+    try {
+      const res = await fetch("/api/tenant/settings/admin", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(adminForm)
+      });
+      if (res.ok) {
+        setIsEditingAdmin(false);
+        await refresh();
+      } else {
+        const err = await res.json();
+        alert(err.message || "Failed to update credentials");
+      }
+    } catch (err) {
+      alert("An error occurred while updating credentials");
+    } finally {
+      setIsSavingAdmin(false);
+    }
+  }
 
   async function handleLogout() {
     const slug = session?.slug;
@@ -51,6 +87,7 @@ export function Topbar({ onMenuClick }: { onMenuClick?: () => void }) {
       }
       if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
         setShowProfileMenu(false);
+        setIsEditingAdmin(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -159,19 +196,46 @@ export function Topbar({ onMenuClick }: { onMenuClick?: () => void }) {
                   <div className="space-y-4">
                     {subscription && (
                       <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Login Access</p>
+                        <div className="flex items-center justify-between mb-2">
+                           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Login Access</p>
+                           {!isEditingAdmin ? (
+                             <button onClick={() => setIsEditingAdmin(true)} className="text-[9px] font-bold text-blue-600 uppercase hover:underline">Edit</button>
+                           ) : (
+                             <div className="flex gap-2">
+                               <button onClick={handleAdminUpdate} disabled={isSavingAdmin} className="text-[9px] font-bold text-green-600 uppercase hover:underline">Save</button>
+                               <button onClick={() => setIsEditingAdmin(false)} className="text-[9px] font-bold text-slate-400 uppercase hover:underline">Cancel</button>
+                             </div>
+                           )}
+                        </div>
                         <div className="space-y-2">
                           <div className="flex items-center justify-between">
                             <span className="text-xs text-slate-500">Username:</span>
-                            <code className="bg-white border border-slate-200 px-2 py-0.5 rounded text-[11px] font-bold text-slate-800">
-                              {subscription.adminUsername}
-                            </code>
+                            {isEditingAdmin ? (
+                              <input 
+                                className="bg-white border border-blue-200 px-2 py-0.5 rounded text-[11px] font-bold text-slate-800 w-32 outline-none"
+                                value={adminForm.username}
+                                onChange={(e) => setAdminForm({ ...adminForm, username: e.target.value })}
+                              />
+                            ) : (
+                              <code className="bg-white border border-slate-200 px-2 py-0.5 rounded text-[11px] font-bold text-slate-800">
+                                {subscription.adminUsername}
+                              </code>
+                            )}
                           </div>
                           <div className="flex items-center justify-between">
                             <span className="text-xs text-slate-500">Password:</span>
-                            <code className="bg-white border border-slate-200 px-2 py-0.5 rounded text-[11px] font-bold text-slate-800">
-                              {subscription.adminPassword}
-                            </code>
+                            {isEditingAdmin? (
+                               <input 
+                               className="bg-white border border-blue-200 px-2 py-0.5 rounded text-[11px] font-bold text-slate-800 w-32 outline-none"
+                               type="text"
+                               value={adminForm.password}
+                               onChange={(e) => setAdminForm({ ...adminForm, password: e.target.value })}
+                             />
+                            ) : (
+                              <code className="bg-white border border-slate-200 px-2 py-0.5 rounded text-[11px] font-bold text-slate-800">
+                                {subscription.adminPassword}
+                              </code>
+                            )}
                           </div>
                         </div>
                       </div>

@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import { masterPrisma } from "@/lib/prisma";
 
 export async function POST(request: NextRequest) {
   try {
     const { password } = await request.json();
 
-    const masterPassword = process.env.SUPER_ADMIN_PASSWORD || "superadmin123";
+    // Fetch dynamic password from DB
+    const adminConfig = await masterPrisma.masterAdmin.findFirst();
+    const masterPassword = adminConfig?.password || process.env.SUPER_ADMIN_PASSWORD || "superadmin123";
 
     if (password !== masterPassword) {
       return NextResponse.json({ message: "Invalid super admin password." }, { status: 401 });

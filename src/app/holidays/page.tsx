@@ -1,5 +1,10 @@
 import { HolidaysClient } from "@/modules/holidays/holidays-client";
+import { ServiceGuard } from "@/components/shared/service-guard";
 
 export default function HolidaysPage() {
-  return <HolidaysClient />;
+  return (
+    <ServiceGuard id="leaves">
+      <HolidaysClient />
+    </ServiceGuard>
+  );
 }

@@ -44,14 +44,19 @@ export function EmployeesClient() {
   }, [data, query]);
 
   async function handleSubmit(payload: Record<string, unknown>) {
-    if (mode === "create") {
-      await sendJson("/api/employees", "POST", payload);
-    } else if (selected && mode === "edit") {
-      await sendJson(`/api/employees/${selected.id}`, "PUT", payload);
+    try {
+      if (mode === "create") {
+        await sendJson("/api/employees", "POST", payload);
+      } else if (selected && mode === "edit") {
+        await sendJson(`/api/employees/${selected.id}`, "PUT", payload);
+      }
+      setOpen(false);
+      setSelected(undefined);
+      await refresh();
+    } catch (error: any) {
+      // Re-throw so the child form's local try-catch can catch it
+      throw error;
     }
-    setOpen(false);
-    setSelected(undefined);
-    await refresh();
   }
 
   async function handlePasswordSubmit(e: React.FormEvent) {
@@ -89,9 +94,18 @@ export function EmployeesClient() {
       key: "name",
       title: "Employee",
       render: (row: Employee) => (
-        <div>
-          <p className="font-semibold">{row.name}</p>
-          <p className="text-xs text-slate-500">{row.designation}</p>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center overflow-hidden border border-indigo-200 shrink-0">
+             {row.image ? (
+               <img src={row.image} alt={row.name} className="w-full h-full object-cover" />
+             ) : (
+               <span className="text-sm font-bold text-indigo-600">{row.name.charAt(0)}</span>
+             )}
+          </div>
+          <div>
+            <p className="font-semibold text-slate-900">{row.name}</p>
+            <p className="text-[10px] uppercase tracking-wider font-bold text-slate-400">{row.designation}</p>
+          </div>
         </div>
       )
     },

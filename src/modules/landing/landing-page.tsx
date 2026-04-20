@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   Users, 
   Clock, 
   CreditCard, 
   ShieldCheck, 
+  Shield,
   PieChart, 
   ArrowRight, 
   CheckCircle2, 
@@ -15,8 +16,13 @@ import {
   Globe,
   Lock,
   Menu,
-  X
+  X,
+  Loader2,
+  Award,
+  Trophy,
+  Star
 } from "lucide-react";
+import * as LucideIcons from "lucide-react";
 import Link from "next/link";
 
 const FEATURE_LIST = [
@@ -55,31 +61,110 @@ const FEATURE_LIST = [
 export function LandingPage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("yearly");
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Dynamic Content States with Fallbacks
+  const [branding, setBranding] = useState({
+    primaryColor: "#2563eb",
+    logo: "/logo.png",
+    favicon: "/favicon.png"
+  });
+
+  const [hero, setHero] = useState({
+    title: "Revolutionize Your HR Operations",
+    subtitle: "The all-in-one HR Management System designed for modern businesses. Automate attendance, payroll, and employee life-cycles in one sleek platform.",
+    cta: "Contact Support",
+    ctaLink: "https://wa.me/8801739748004",
+    mockupImg: "/hr_dashboard_mockup_new.png"
+  });
+
+  const [stats, setStats] = useState([
+    { label: "Uptime SLA", val: "99.9%" },
+    { label: "Active Tenants", val: "500+" },
+    { label: "Support", val: "24/7" },
+    { label: "Encryption", val: "AES-256" }
+  ]);
+
+  const [features, setFeatures] = useState([
+    { title: "Employee Management", desc: "Manage onboarding, employee documents, and profiles in one centralized database.", icon: "Users" },
+    { title: "Biometric Attendance", desc: "Real-time attendance sync with ZKTeco and physical biometric machines.", icon: "Clock" },
+    { title: "Automated Payroll", desc: "Calculate salaries, manageable structures, and monthly payments with one click.", icon: "CreditCard" },
+    { title: "Loans & Advances", desc: "Specifically track employee loans and advance salaries with automated deductions.", icon: "Shield" },
+    { title: "Leave & Holidays", desc: "Full control over leave balances, holidays, and manual attendance requests.", icon: "PieChart" },
+    { title: "Office Cost Tracking", desc: "Monitor daily expenses and maintain financial transparency for the office.", icon: "Briefcase" }
+  ]);
+
+  const [pricing, setPricing] = useState([
+    { name: "Starter", price: "$19", employees: "25", features: ["Employee Management", "Biometric Attendance", "Automated Payroll", "Loans & Advances", "Leave & Holidays", "Office Cost Tracking"] },
+    { name: "Growth", price: "$49", employees: "100", features: ["Employee Management", "Biometric Attendance", "Automated Payroll", "Loans & Advances", "Leave & Holidays", "Office Cost Tracking"] },
+    { name: "Enterprise", price: "$99", employees: "300", features: ["Employee Management", "Biometric Attendance", "Automated Payroll", "Loans & Advances", "Leave & Holidays", "Office Cost Tracking"] }
+  ]);
+
+  useEffect(() => {
+    async function fetchLandingData() {
+      try {
+        const res = await fetch("/api/landing-page");
+        const data = await res.json();
+        if (data.BRANDING) setBranding(data.BRANDING);
+        if (data.HERO) setHero(data.HERO);
+        if (data.STATS) setStats(data.STATS);
+        if (data.FEATURES) setFeatures(data.FEATURES);
+        if (data.PRICING) {
+           const pricingArray = Array.isArray(data.PRICING) ? data.PRICING : (data.PRICING.monthly || []);
+           setPricing(pricingArray);
+        }
+      } catch (e) {
+        console.error("Failed to load dynamic landing content, using fallbacks.");
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    fetchLandingData();
+  }, []);
+
+  const toPascalCase = (str: string) => {
+    if (!str) return "";
+    return str
+      .split(/[-_ ]+/)
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join('');
+  };
+
+  const DynamicIcon = ({ name, className, style }: { name: string, className?: string, style?: any }) => {
+    const icons: any = { ...LucideIcons };
+    const normalizedName = toPascalCase(name);
+    const IconComponent = icons[normalizedName] || icons[name] || Zap;
+    return <IconComponent className={className} style={style} />;
+  };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-200 selection:bg-blue-500/30 font-sans">
+    <div className="min-h-screen bg-slate-950 text-slate-200 selection:bg-red-500/30 font-sans">
+      <style dangerouslySetInnerHTML={{ __html: `
+        :root {
+          --primary: ${branding.primaryColor};
+          --primary-glow: ${branding.primaryColor}33;
+          --primary-soft: ${branding.primaryColor}1a;
+        }
+      `}} />
       {/* Navbar */}
       <nav className="fixed top-0 w-full z-50 bg-slate-950/80 backdrop-blur-xl border-b border-slate-800/50 px-6 py-4">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <div className="bg-blue-600 p-2 rounded-xl">
-              <Zap className="w-5 h-5 text-white" />
-            </div>
-            <span className="text-xl font-bold tracking-tight text-white">AppDevs <span className="text-blue-500">HR</span></span>
-          </div>
+          <a href="#hero" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+            <img src={branding.logo} alt="Logo" className="h-10 w-auto" />
+          </a>
 
           <div className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-400">
             <a href="#features" className="hover:text-white transition-colors">Features</a>
             <a href="#pricing" className="hover:text-white transition-colors">Pricing</a>
-            <a href="#about" className="hover:text-white transition-colors">About</a>
           </div>
 
           <div className="flex items-center gap-4">
             <a 
-              href="https://wa.me/8801739748004" 
+              href={hero.ctaLink} 
               target="_blank"
               rel="noopener noreferrer"
-              className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold transition-all shadow-lg shadow-blue-600/20"
+              className="px-5 py-2 rounded-xl text-white text-sm font-bold transition-all shadow-lg"
+              style={{ backgroundColor: branding.primaryColor }}
             >
               Contact Support
             </a>
@@ -91,41 +176,40 @@ export function LandingPage() {
       </nav>
 
       {/* Hero Section */}
-      <section className="relative pt-32 pb-20 px-6 overflow-hidden">
+      <section id="hero" className="relative pt-32 pb-20 px-6 overflow-hidden">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-5xl h-[500px] bg-blue-600/10 blur-[120px] rounded-full -z-10" />
         
         <div className="max-w-7xl mx-auto text-center space-y-8">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-bold uppercase tracking-widest">
-            <Globe className="w-3 h-3" /> Next-Gen SaaS Infrastructure
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900 border border-slate-800 text-xs font-bold uppercase tracking-widest" style={{ color: branding.primaryColor }}>
+            <Globe className="w-3 h-3" /> Next-Gen HR Infrastructure
           </div>
           
-          <h1 className="text-5xl md:text-7xl font-extrabold text-white tracking-tight leading-[1.1]">
-            Revolutionize Your <br/> <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-600">HR Operations</span>
+          <h1 className="text-5xl md:text-7xl font-extrabold text-white tracking-tight leading-[1.1] whitespace-pre-line">
+            {hero.title}
           </h1>
           
-          <p className="max-w-2xl mx-auto text-slate-400 text-lg leading-relaxed">
-            The all-in-one HR Management System designed for modern businesses. 
-            Automate attendance, payroll, and employee life-cycles in one sleek platform.
+          <p className="max-w-2xl mx-auto text-slate-400 text-lg leading-relaxed whitespace-pre-line">
+            {hero.subtitle}
           </p>
 
           <div className="flex flex-col md:flex-row items-center justify-center gap-4 pt-4 text-center">
              <a 
-               href="https://wa.me/8801739748004" 
+               href={hero.ctaLink} 
                target="_blank"
                rel="noopener noreferrer"
                className="w-full md:w-auto px-8 py-4 rounded-2xl bg-white text-black font-bold flex items-center justify-center gap-2 hover:bg-slate-200 transition-all group"
              >
-               Contact Support <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+               {hero.cta} <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
              </a>
           </div>
 
           <div className="relative mt-20 max-w-5xl mx-auto rounded-3xl border border-white/10 bg-slate-900/50 p-2 shadow-2xl overflow-hidden group">
              <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-slate-950/80 z-10" />
-             <img 
-               src="/hr_dashboard_mockup_new.png" 
-               alt="HR Dashboard Mockup" 
-               className="rounded-2xl w-full h-auto grayscale-[20%] group-hover:grayscale-0 transition-all duration-700"
-             />
+              <img 
+                src={hero.mockupImg} 
+                alt="HR Dashboard Mockup" 
+                className="rounded-2xl w-full h-auto grayscale-[20%] group-hover:grayscale-0 transition-all duration-700"
+              />
           </div>
         </div>
       </section>
@@ -133,12 +217,7 @@ export function LandingPage() {
       {/* Stats Section */}
       <section className="py-20 border-y border-white/5 bg-slate-900/20">
         <div className="max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8 px-6 text-center">
-           {[
-             { label: "Uptime SLA", val: "99.9%" },
-             { label: "Active Tenants", val: "500+" },
-             { label: "Support", val: "24/7" },
-             { label: "Encryption", val: "AES-256" }
-           ].map((s, i) => (
+           {stats.map((s, i) => (
              <div key={i} className="space-y-1">
                <div className="text-3xl font-bold text-white tracking-tight">{s.val}</div>
                <div className="text-xs font-bold text-slate-500 uppercase tracking-widest">{s.label}</div>
@@ -151,15 +230,15 @@ export function LandingPage() {
       <section id="features" className="py-32 px-6">
         <div className="max-w-7xl mx-auto space-y-20">
           <div className="text-center space-y-4">
-            <h2 className="text-3xl md:text-5xl font-bold text-white tracking-tight">Everything you need to <span className="text-blue-500">scale</span></h2>
+            <h2 className="text-3xl md:text-5xl font-bold text-white tracking-tight">Everything you need to <span style={{ color: branding.primaryColor }}>scale</span></h2>
             <p className="text-slate-400 max-w-xl mx-auto italic">Stop juggling spreadsheets and start managing your people with precision.</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {FEATURE_LIST.map((f, i) => (
-              <div key={i} className="p-8 rounded-3xl bg-white/5 border border-white/10 hover:border-blue-500/50 hover:bg-white/[0.07] transition-all group">
-                <div className="mb-6 bg-slate-900 p-3 rounded-2xl w-fit group-hover:bg-blue-600/10 transition-colors">
-                  {f.icon}
+            {features.map((f, i) => (
+              <div key={i} className="p-8 rounded-3xl bg-white/5 border border-white/10 transition-all group hover:border-slate-700" style={{ borderColor: 'var(--primary-soft)' }}>
+                <div className="mb-6 bg-slate-900 p-3 rounded-2xl w-fit group-hover:bg-white/5 transition-colors">
+                  <DynamicIcon name={f.icon} className="w-6 h-6" style={{ color: branding.primaryColor }} />
                 </div>
                 <h3 className="text-xl font-bold text-white mb-3">{f.title}</h3>
                 <p className="text-slate-400 text-sm leading-relaxed">{f.desc}</p>
@@ -265,96 +344,55 @@ export function LandingPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {/* Plan 1 */}
-            <div className="p-10 rounded-[40px] bg-white/5 border border-white/10 hover:border-white/20 transition-all space-y-8">
-               <div className="space-y-2">
-                 <h3 className="text-xl font-bold text-white">Starter</h3>
-                 <p className="text-slate-400 text-sm">Perfect for small teams getting started.</p>
-               </div>
-               <div className="text-4xl font-bold text-white tracking-tight">
-                 {billingCycle === 'monthly' ? "$29" : "$278"}
-                 <span className="text-sm font-normal text-slate-500">/{billingCycle === 'monthly' ? 'mo' : 'yr'}</span>
-               </div>
-               <ul className="space-y-4">
-                 {["Up to 20 Employees", "Core HR Management", "Employee Profiles", "Holiday Calendar"].map((item, i) => (
-                    <li key={i} className="flex items-center gap-3 text-sm text-slate-300">
-                      <CheckCircle2 className="w-4 h-4 text-blue-500 flex-shrink-0" /> {item}
+            {pricing.map((plan, idx) => {
+              const isGrowth = plan.name.toLowerCase() === "growth" || (pricing.length === 3 && idx === 1);
+              const priceNum = parseInt(plan.price.replace("$", ""));
+              const price = billingCycle === "monthly" ? plan.price : `$${Math.round(priceNum * 12 * 0.8)}`;
+              
+              return (
+                <div key={idx} className={`relative p-10 rounded-[40px] border transition-all space-y-8 ${
+                  isGrowth 
+                  ? "border-slate-700 shadow-2xl transform md:-translate-y-4" 
+                  : "bg-white/5 border-white/10 hover:border-white/20"
+                }`} style={{ backgroundColor: isGrowth ? branding.primaryColor : undefined }}>
+                  {isGrowth && (
+                    <div className="absolute top-5 right-5 bg-white text-black text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-widest italic" style={{ color: branding.primaryColor }}>Most Popular</div>
+                  )}
+                  <div className="space-y-2">
+                    <h3 className="text-xl font-bold text-white">{plan.name}</h3>
+                    <p className={`text-sm ${isGrowth ? "text-white/80" : "text-slate-400"}`}>Perfect for scaling teams.</p>
+                  </div>
+                  <div className="text-4xl font-bold text-white tracking-tight">
+                    {price}
+                    <span className={`text-sm font-normal ${isGrowth ? "text-white/60" : "text-slate-500"}`}>
+                      /{billingCycle === 'monthly' ? 'mo' : 'yr'}
+                    </span>
+                  </div>
+                  <ul className="space-y-4">
+                    <li className={`flex items-center gap-3 text-sm font-bold ${isGrowth ? "text-white" : ""}`} style={{ color: isGrowth ? undefined : branding.primaryColor }}>
+                      <CheckCircle2 className={`w-4 h-4 flex-shrink-0 ${isGrowth ? "text-white" : ""}`} style={{ color: isGrowth ? undefined : branding.primaryColor }} /> 
+                      Up to {plan.employees} Employees
                     </li>
-                 ))}
-               </ul>
-               <a 
-                 href="https://wa.me/8801739748004" 
-                 target="_blank"
-                 rel="noopener noreferrer"
-                 className="block w-full text-center py-4 rounded-2xl bg-white/10 text-white font-bold hover:bg-white/20 transition-all"
-               >
-                 Contact Support
-               </a>
-            </div>
-
-            {/* Plan 2 (Popular) */}
-            <div className="relative p-10 rounded-[40px] bg-blue-600 border border-blue-400 shadow-2xl shadow-blue-600/40 space-y-8 transform md:-translate-y-4 overflow-hidden">
-               <div className="absolute top-5 right-5 bg-white text-blue-600 text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-widest italic">Most Popular</div>
-               <div className="space-y-2">
-                 <h3 className="text-xl font-bold text-white">Growth</h3>
-                 <p className="text-blue-100 text-sm">Scale your business with advanced tools.</p>
-               </div>
-               <div className="text-4xl font-bold text-white tracking-tight">
-                 {billingCycle === 'monthly' ? "$79" : "$758"}
-                 <span className="text-sm font-normal text-blue-200">/{billingCycle === 'monthly' ? 'mo' : 'yr'}</span>
-               </div>
-               <ul className="space-y-4">
-                 {[
-                   "Up to 100 Employees", 
-                   "Biometric Attendance Sync", 
-                   "Full Payroll Engine", 
-                   "Advanced Reporting",
-                   "Support Ticket Access"
-                 ].map((item, i) => (
-                    <li key={i} className="flex items-center gap-3 text-sm text-white font-medium">
-                      <CheckCircle2 className="w-4 h-4 text-white flex-shrink-0" /> {item}
-                    </li>
-                 ))}
-               </ul>
-               <a 
-                 href="https://wa.me/8801739748004" 
-                 target="_blank"
-                 rel="noopener noreferrer"
-                 className="block w-full text-center py-4 rounded-2xl bg-white text-blue-600 font-bold hover:bg-blue-50 transition-all shadow-lg"
-               >
-                 Contact Support
-               </a>
-            </div>
-
-            {/* Plan 3 */}
-            <div className="p-10 rounded-[40px] bg-white/5 border border-white/10 space-y-8">
-               <div className="space-y-2">
-                 <h3 className="text-xl font-bold text-white">Enterprise</h3>
-                 <p className="text-slate-400 text-sm">For organizations with elite requirements.</p>
-               </div>
-               <div className="text-4xl font-bold text-white tracking-tight">Custom</div>
-               <ul className="space-y-4">
-                 {[
-                   "Unlimited Employees", 
-                   "Custom IP Whitelisting", 
-                   "Dedicated Account Manager", 
-                   "White-label Branding Option",
-                   "On-premise Sync Script Support"
-                 ].map((item, i) => (
-                    <li key={i} className="flex items-center gap-3 text-sm text-slate-300">
-                      <CheckCircle2 className="w-4 h-4 text-blue-500 flex-shrink-0" /> {item}
-                    </li>
-                 ))}
-               </ul>
-               <a 
-                 href="https://wa.me/8801739748004" 
-                 target="_blank"
-                 rel="noopener noreferrer"
-                 className="block w-full text-center py-4 rounded-2xl bg-white/10 text-white font-bold hover:bg-white/20 transition-all"
-               >
-                 Contact Support
-               </a>
-            </div>
+                    {plan.features.map((feature, fIdx) => (
+                      <li key={fIdx} className={`flex items-center gap-3 text-sm ${isGrowth ? "text-white/90" : "text-slate-300"}`}>
+                        <CheckCircle2 className={`w-4 h-4 flex-shrink-0 ${isGrowth ? "text-white text-blue-500" : ""}`} style={{ color: isGrowth ? undefined : branding.primaryColor }} /> {feature}
+                      </li>
+                    ))}
+                  </ul>
+                  <a 
+                    href={hero.ctaLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`block w-full text-center py-4 rounded-2xl font-bold transition-all shadow-lg ${
+                      isGrowth ? "bg-white text-black hover:bg-slate-100" : "bg-white/10 text-white hover:bg-white/20"
+                    }`}
+                    style={{ color: isGrowth ? branding.primaryColor : undefined }}
+                  >
+                    {hero.cta}
+                  </a>
+                </div>
+              );
+            })}
           </div>
         </div>
       </section>
@@ -387,10 +425,7 @@ export function LandingPage() {
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between gap-12">
           <div className="space-y-6">
             <div className="flex items-center gap-2">
-              <div className="bg-blue-600 p-1.5 rounded-lg">
-                <Zap className="w-4 h-4 text-white" />
-              </div>
-              <span className="text-lg font-bold tracking-tight text-white">AppDevs <span className="text-blue-500">HR</span></span>
+              <img src={branding.logo} alt="Logo" className="h-8 w-auto" />
             </div>
             <p className="max-w-xs text-sm text-slate-500">Empowering organizations with intelligent and intuitive HR infrastructure.</p>
           </div>

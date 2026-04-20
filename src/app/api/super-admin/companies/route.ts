@@ -22,7 +22,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { slug, companyName, dbUrl, adminUsername, adminPassword, subscriptionDays } = body;
+    const { slug, companyName, dbUrl, adminUsername, adminPassword, subscriptionDays, planName, employeeLimit } = body;
 
     if (!slug || !companyName || !dbUrl || !adminUsername || !adminPassword) {
       return NextResponse.json({ message: "Missing required fields" }, { status: 400 });
@@ -34,6 +34,23 @@ export async function POST(request: NextRequest) {
     const subscriptionEnd = new Date();
     subscriptionEnd.setDate(subscriptionEnd.getDate() + days);
 
+    // Default Full Permissions for new tenants
+    const defaultPermissions = {
+      attendance: true,
+      leaves: true,
+      payroll: true,
+      loans: true,
+      advances: true,
+      costs: true
+    };
+
+    // Employee limits based on plan
+    const limits: Record<string, number> = {
+      Starter: 50,
+      Growth: 500,
+      Enterprise: 5000
+    };
+
     const tenant = await masterPrisma.tenant.create({
       data: {
         slug: slug.toLowerCase().trim().replace(/\s+/g, "-"),
@@ -43,6 +60,9 @@ export async function POST(request: NextRequest) {
         adminPassword,
         subscriptionStart,
         subscriptionEnd,
+        planName: planName || "Starter",
+        employeeLimit: employeeLimit || limits[planName as string] || 50,
+        permissions: defaultPermissions,
         status: "ACTIVE"
       }
     });
@@ -58,13 +78,16 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const { id, subscriptionDays, ...data } = await request.json();
+    const body = await request.json();
+    console.log("Super Admin PUT Request Body:", JSON.stringify(body, null, 2));
+    const { id, subscriptionDays, ...data } = body;
 
     if (!id) {
       return NextResponse.json({ message: "Missing tenant ID" }, { status: 400 });
     }
 
-    let updateData = { ...data };
+    // Sanitize data (remove nulls/undefined for Prisma update if needed)
+    const updateData: any = { ...data };
 
     // Renewal logic: if subscriptionDays is provided, add to existing end date or start from now if expired
     if (subscriptionDays) {

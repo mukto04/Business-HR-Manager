@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getTenantPrisma } from "@/lib/prisma";
+import { getTenantPrisma, masterPrisma, getTenantSlug } from "@/lib/prisma";
 import { employeeSchema } from "@/app/api/_helpers";
 import { calculateSalaryBreakdown } from "@/utils/calculations";
 import { calculateProRataLeave } from "@/utils/leave-calculator";
@@ -33,10 +33,33 @@ export async function POST(request: NextRequest) {
     const rawData = await request.json();
     const parsed = employeeSchema.parse(rawData);
 
+    const tenantPrisma = await getTenantPrisma();
+    const slug = await getTenantSlug();
+
+    // 1. Check Employee Limit
+    const tenant = await masterPrisma.tenant.findUnique({
+      where: { slug: slug.toLowerCase() },
+      select: { employeeLimit: true }
+    });
+
+    const currentCount = await tenantPrisma.employee.count({
+      where: { status: "ACTIVE" }
+    });
+
+    if (tenant && currentCount >= (tenant.employeeLimit || 50)) {
+      return NextResponse.json(
+        { 
+          message: `Your subscription limit is full. Please contact the service provider to increase the employee limit.`,
+          code: "LIMIT_EXCEEDED"
+        },
+        { status: 403 }
+      );
+    }
+
     const { salary, ...employeeData } = parsed;
 
     // Use a transaction to ensure all related records are created together
-    const newEmployee = await (await getTenantPrisma()).$transaction(async (tx) => {
+    const newEmployee = await tenantPrisma.$transaction(async (tx) => {
       // 1. Create Employee
       // @ts-ignore
       const employee = await tx.employee.create({
