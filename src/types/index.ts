@@ -19,6 +19,7 @@ export interface Employee {
   nidNumber?: string | null;
   educationStatus?: string | null;
   salaryStructure?: SalaryStructure | null;
+  image?: string | null;
   createdAt: string;
   updatedAt: string;
 }
