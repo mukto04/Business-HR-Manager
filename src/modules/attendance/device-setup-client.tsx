@@ -172,14 +172,19 @@ async function sync() {
         await sendHeartbeat("CONNECTED");
         
     } catch (e) {
-        console.error('Connection/Sync Error:', e.message);
-        // Possible reasons: Laptop not in same network, Machine IP changed, Port 4370 blocked
-        if (e.message.includes('timeout') || e.message.includes('EHOSTUNREACH')) {
-            console.error('DIAGNOSTIC: Laptop cannot find the machine on the network. Check IP and Cables.');
-        } else if (e.message.includes('ECONNREFUSED')) {
-            console.error('DIAGNOSTIC: Machine refused connection. Ensure Port 4370 is open on the machine.');
+        const errMsg = e && e.message ? e.message : 'Unknown Connection Error or Timeout';
+        console.error('Connection Failed:', errMsg);
+        
+        // Detailed Diagnostics for Troubleshooting
+        if (errMsg.includes('timeout') || errMsg.includes('EHOSTUNREACH') || errMsg === 'Unknown Connection Error or Timeout') {
+            console.error('DIAGNOSTIC: 1. Ensure laptop & machine are on the SAME router.');
+            console.error('DIAGNOSTIC: 2. Check if IP \${DEVICE_IP} is correct on the machine settings.');
+            console.error('DIAGNOSTIC: 3. Try to ping \${DEVICE_IP} from your terminal.');
+        } else if (errMsg.includes('ECONNREFUSED')) {
+            console.error('DIAGNOSTIC: Connection Refused. Ensure no other agent is connected to the machine.');
         }
-        await sendHeartbeat("DISCONNECTED", e.message);
+        
+        await sendHeartbeat("DISCONNECTED", errMsg);
     } finally {
         try { await zkInstance.disconnect(); } catch (e) {}
     }
