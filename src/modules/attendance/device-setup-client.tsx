@@ -177,9 +177,9 @@ async function sync() {
         
         // Detailed Diagnostics for Troubleshooting
         if (errMsg.includes('timeout') || errMsg.includes('EHOSTUNREACH') || errMsg === 'Unknown Connection Error or Timeout') {
-            console.error('DIAGNOSTIC: 1. Ensure laptop & machine are on the SAME router.');
-            console.error('DIAGNOSTIC: 2. Check if IP \${DEVICE_IP} is correct on the machine settings.');
-            console.error('DIAGNOSTIC: 3. Try to ping \${DEVICE_IP} from your terminal.');
+            console.log('DIAGNOSTIC: 1. Ensure laptop & machine are on the SAME router.');
+            console.log('DIAGNOSTIC: 2. Check if IP ' + DEVICE_IP + ' is correct on the machine settings.');
+            console.log('DIAGNOSTIC: 3. Try to ping ' + DEVICE_IP + ' from your terminal.');
         } else if (errMsg.includes('ECONNREFUSED')) {
             console.error('DIAGNOSTIC: Connection Refused. Ensure no other agent is connected to the machine.');
         }
