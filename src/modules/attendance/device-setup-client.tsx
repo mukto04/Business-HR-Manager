@@ -61,6 +61,7 @@ export function DeviceSetupClient() {
   const [loading, setLoading] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [showApiKeyId, setShowApiKeyId] = useState<string | null>(null);
+  const [setupOS, setSetupOS] = useState<"windows" | "linux">("windows");
   const dialog = useDialog();
 
   const [formData, setFormData] = useState({
@@ -308,15 +309,45 @@ setInterval(sync, SYNC_INTERVAL_MINUTES * 60 * 1000);
                 {/* Step 3 */}
                 <div className="relative pl-10">
                    <div className="absolute left-0 top-0 w-8 h-8 bg-white border-2 border-slate-200 text-slate-400 rounded-full flex items-center justify-center font-bold text-sm z-10">3</div>
-                   <h5 className="font-bold text-slate-800 text-sm mb-1">Run Automatically (Auto-Setup)</h5>
-                   <p className="text-xs text-slate-500 mb-2">
-                      To set it as a Windows Service (runs automatically on startup), open <strong>CMD</strong> as Admin and run:
-                   </p>
-                   <div className="bg-slate-900 rounded-xl p-3 font-mono text-[10px] text-blue-400 group">
-                      <span className="text-slate-500">$</span> npm install -g qckwinsvc
-                      <br/>
-                      <span className="text-slate-500">$</span> qckwinsvc
+                   <div className="flex items-center justify-between gap-4 mb-2">
+                      <h5 className="font-bold text-slate-800 text-sm">Run Automatically (Auto-Setup)</h5>
+                      <div className="flex bg-slate-100 p-1 rounded-lg shrink-0">
+                         <button 
+                            className={`px-2 py-1 text-[9px] font-black uppercase rounded-md transition-all ${setupOS === 'windows' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500'}`}
+                            onClick={() => setSetupOS('windows')}
+                         >
+                            Windows
+                         </button>
+                         <button 
+                            className={`px-2 py-1 text-[9px] font-black uppercase rounded-md transition-all ${setupOS === 'linux' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500'}`}
+                            onClick={() => setSetupOS('linux')}
+                         >
+                            Linux
+                         </button>
+                      </div>
                    </div>
+                   
+                   <p className="text-xs text-slate-500 mb-2 leading-relaxed">
+                      {setupOS === 'windows' 
+                        ? "To set it as a Windows Service (runs automatically on startup), open CMD as Admin and run:"
+                        : "To keep it running in the background on Linux (Ubuntu/Debian/CentOS), use PM2:"}
+                   </p>
+                   
+                   {setupOS === 'windows' ? (
+                     <div className="bg-slate-900 rounded-xl p-3 font-mono text-[10px] text-blue-400">
+                        <span className="text-slate-500">$</span> npm install -g qckwinsvc
+                        <br/>
+                        <span className="text-slate-500">$</span> qckwinsvc
+                     </div>
+                   ) : (
+                     <div className="bg-slate-900 rounded-xl p-3 font-mono text-[10px] text-indigo-400">
+                        <span className="text-slate-500">$</span> npm install -g pm2
+                        <br/>
+                        <span className="text-slate-500">$</span> pm2 start agent-name.js
+                        <br/>
+                        <span className="text-slate-500">$</span> pm2 save && pm2 startup
+                     </div>
+                   )}
                 </div>
 
                 {/* Step 4 */}
