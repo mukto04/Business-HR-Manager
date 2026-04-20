@@ -136,7 +136,7 @@ function EmployeeLoginContent() {
               </div>
               <div className="pt-4">
                  <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-slate-500 mb-6">Contact your HR for the correct URL</p>
-                 <Button variant="outline" className="w-full h-12 rounded-2xl border-white/10 bg-white/5 hover:bg-white/10 text-white" onClick={() => window.history.back()}>
+                 <Button variant="ghost" className="w-full h-12 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 text-white" onClick={() => window.history.back()}>
                     <ArrowLeft className="mr-2 w-4 h-4" /> Go Back
                  </Button>
               </div>
