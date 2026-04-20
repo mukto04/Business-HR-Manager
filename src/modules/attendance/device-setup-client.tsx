@@ -47,14 +47,30 @@ export function DeviceSetupClient() {
   
   // Helper to determine if device is online (seen in last 6 minutes)
   const getDeviceStatus = (device: AttendanceDevice) => {
-    if (!device.lastSeen) return { label: "Offline", color: "bg-slate-100 text-slate-500", iconColor: "text-slate-400", bgColor: "bg-slate-50 border-slate-100" };
+    const lastSeen = device.lastSeen ? new Date(device.lastSeen).getTime() : 0;
+    const isOnline = Date.now() - lastSeen < 6 * 60 * 1000; // 6 minutes threshold
     
-    const diff = Date.now() - new Date(device.lastSeen).getTime();
-    const isOnline = diff < 6 * 60 * 1000; // 6 minutes threshold
+    if (!isOnline) {
+      return { 
+        label: "Offline", 
+        color: "bg-slate-100 text-slate-500", 
+        iconColor: "text-slate-400", 
+        bgColor: "bg-slate-50 border-slate-100",
+        agentStatus: "DISCONNECTED"
+      };
+    }
     
-    return isOnline 
-      ? { label: "Online", color: "bg-green-500/10 text-green-600", iconColor: "text-green-600", bgColor: "bg-green-50 border-green-100" }
-      : { label: "Offline", color: "bg-slate-100 text-slate-500", iconColor: "text-slate-400", bgColor: "bg-slate-50 border-slate-100" };
+    // If agent is seen, check the machine status stored in 'status' field
+    const machineActive = device.status === "ACTIVE";
+    
+    return { 
+      label: machineActive ? "Online" : "Agent Only", 
+      color: machineActive ? "bg-green-500/10 text-green-600" : "bg-blue-500/10 text-blue-600", 
+      iconColor: machineActive ? "text-green-600" : "text-blue-600", 
+      bgColor: machineActive ? "bg-green-50 border-green-100" : "bg-blue-50 border-blue-100",
+      agentStatus: "CONNECTED",
+      machineStatus: machineActive ? "REACHABLE" : "UNREACHABLE"
+    };
   };
 
   const [open, setOpen] = useState(false);
@@ -113,44 +129,64 @@ export function DeviceSetupClient() {
  * IP: ${device.ipAddress}
  */
 
-// Configuration - Edit this if needed
-const API_URL = "${window.location.origin}/api/attendance/sync-push";
+// Configuration
+const HEARTBEAT_URL = "${window.location.origin}/api/attendance/heartbeat";
+const SYNC_URL = "${window.location.origin}/api/attendance/sync-push";
 const API_KEY = "${device.apiKey}";
 const DEVICE_IP = "${device.ipAddress}";
 const DEVICE_PORT = ${device.port};
 const SYNC_INTERVAL_MINUTES = 5;
 
-// Note: Requires node-zklib package
+// Requires node-zklib package
 // Install with: npm install node-zklib axios
 
 const ZKLib = require('node-zklib');
 const axios = require('axios');
 
+async function sendHeartbeat(machineStatus = "DISCONNECTED", error = null) {
+    try {
+        await axios.post(HEARTBEAT_URL, { machineStatus, error }, {
+            headers: { 'x-api-key': API_KEY }
+        });
+        console.log(\`[\${new Date().toLocaleString()}] Heartbeat sent: Machine is \${machineStatus}\`);
+    } catch (e) {
+        console.error('Heartbeat failed:', e.message);
+    }
+}
+
 async function sync() {
     let zkInstance = new ZKLib(DEVICE_IP, DEVICE_PORT, 10000, 4000);
     try {
-        console.log(\`[\${new Date().toLocaleString()}] Connecting to device at \${DEVICE_IP}...\`);
+        console.log(\`[\${new Date().toLocaleString()}] Attempting connection to \${DEVICE_IP}...\`);
         await zkInstance.createSocket();
         
+        console.log('Connected! Fetching logs...');
         const logs = await zkInstance.getAttendances();
-        console.log(\`Found \${logs.data.length} logs. Sending to SaaS...\`);
-
-        const response = await axios.post(API_URL, { logs: logs.data }, {
+        
+        console.log(\`Syncing \${logs.data.length} logs to SaaS...\`);
+        const response = await axios.post(SYNC_URL, { logs: logs.data }, {
             headers: { 'x-api-key': API_KEY }
         });
 
-        console.log('Sync Success:', response.data.message);
-        console.log('Summary:', response.data.summary);
+        console.log('Success:', response.data.message);
+        await sendHeartbeat("CONNECTED");
         
     } catch (e) {
-        console.error('Sync error:', e.message);
+        console.error('Connection/Sync Error:', e.message);
+        // Possible reasons: Laptop not in same network, Machine IP changed, Port 4370 blocked
+        if (e.message.includes('timeout') || e.message.includes('EHOSTUNREACH')) {
+            console.error('DIAGNOSTIC: Laptop cannot find the machine on the network. Check IP and Cables.');
+        } else if (e.message.includes('ECONNREFUSED')) {
+            console.error('DIAGNOSTIC: Machine refused connection. Ensure Port 4370 is open on the machine.');
+        }
+        await sendHeartbeat("DISCONNECTED", e.message);
     } finally {
         try { await zkInstance.disconnect(); } catch (e) {}
     }
 }
 
-console.log('AppDevs Sync Agent Started...');
-console.log('Sync Interval:', SYNC_INTERVAL_MINUTES, 'minutes');
+console.log('AppDevs Sync Agent V2 Started...');
+console.log('Target Device:', DEVICE_IP + ':' + DEVICE_PORT);
 
 // Run immediately then on interval
 sync();
@@ -215,6 +251,11 @@ setInterval(sync, SYNC_INTERVAL_MINUTES * 60 * 1000);
                            <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${statusInfo.color}`}>
                              {statusInfo.label}
                            </span>
+                           {statusInfo.agentStatus === 'CONNECTED' && statusInfo.label === 'Agent Only' && (
+                             <span className="text-[9px] text-blue-500 font-medium italic ml-2">
+                               (Agent Online, Machine Offline)
+                             </span>
+                           )}
                         </div>
                       </div>
                     </div>
