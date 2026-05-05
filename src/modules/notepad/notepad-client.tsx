@@ -282,8 +282,8 @@ export function NotepadClient() {
                ref={editorRef}
                onFocus={() => setIsExpanding(true)}
                onInput={(e) => handleContentChange(e, true)}
-               className="w-full min-h-[80px] bg-transparent border-none outline-none text-slate-600 placeholder:text-slate-400 font-medium empty:before:content-[attr(placeholder)] empty:before:text-slate-400 focus:empty:before:content-none prose prose-slate max-w-none prose-sm"
-               placeholder={t("Take a note...")}
+               className="w-full min-h-[80px] bg-transparent border-none outline-none text-slate-600 placeholder:text-slate-400 font-medium empty:before:content-[attr(data-placeholder)] empty:before:text-slate-400 focus:empty:before:content-none prose prose-slate max-w-none prose-sm"
+               data-placeholder={t("Take a note...")}
              />
           </div>
 
