@@ -171,7 +171,7 @@ async function sendHeartbeat(machineStatus = "DISCONNECTED", error = null) {
 }
 
 async function sync() {
-    let zkInstance = new ZKLib(DEVICE_IP, DEVICE_PORT, 20000, 4000);
+    let zkInstance = new ZKLib(DEVICE_IP, DEVICE_PORT, 25000, 4000);
     try {
         console.log(\`[\${new Date().toLocaleString()}] Attempting connection to \${DEVICE_IP}...\`);
         await zkInstance.createSocket();
@@ -199,6 +199,8 @@ async function sync() {
             console.log('DIAGNOSTIC: 1. Ensure laptop & machine are on the SAME router.');
             console.log('DIAGNOSTIC: 2. Check if IP ' + DEVICE_IP + ' is correct on the machine settings.');
             console.log('DIAGNOSTIC: 3. Try to ping ' + DEVICE_IP + ' from your terminal.');
+            console.log('DIAGNOSTIC: 4. IMPORTANT: Ensure Comm Key is set to 0 in the machine network settings.');
+            console.log('DIAGNOSTIC: 5. Close any other software (like ZKTime) that might be connected to the machine.');
         } else if (errMsg.includes('ECONNREFUSED')) {
             console.error('DIAGNOSTIC: Connection Refused. Ensure no other agent is connected to the machine.');
         }
