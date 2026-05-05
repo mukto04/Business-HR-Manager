@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { format, differenceInCalendarDays, eachDayOfInterval, isWeekend } from "date-fns";
 import { Coffee, Calendar, History, PieChart, Plus, X, Send, Clock, CheckCircle2, XCircle } from "lucide-react";
 import { useTranslation } from "@/hooks/use-translation";
@@ -25,7 +25,7 @@ const StatusBadge = ({ status }: { status: RequestStatus }) => {
     APPROVED: "bg-emerald-50 text-emerald-600 border-emerald-200",
     REJECTED: "bg-rose-50 text-rose-600 border-rose-200",
   };
-  const icons: Record<RequestStatus, JSX.Element> = {
+  const icons: Record<RequestStatus, React.ReactNode> = {
     PENDING: <Clock className="w-3 h-3" />,
     APPROVED: <CheckCircle2 className="w-3 h-3" />,
     REJECTED: <XCircle className="w-3 h-3" />,
