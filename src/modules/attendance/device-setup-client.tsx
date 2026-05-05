@@ -176,9 +176,10 @@ async function sync() {
     
     // Auto-fallback strategies for modern devices like F22
     const strategies = [
-        { name: "Default (No Password)", args: [DEVICE_IP, DEVICE_PORT, 25000, 4000] },
-        { name: "Password = 0 (Number)", args: [DEVICE_IP, DEVICE_PORT, 25000, 4000, 0] },
-        { name: "Password = '0' (String)", args: [DEVICE_IP, DEVICE_PORT, 25000, 4000, '0'] }
+        { name: "TCP Default (No Password)", type: "tcp", args: [DEVICE_IP, DEVICE_PORT, 25000, 4000] },
+        { name: "TCP Password = 0 (Number)", type: "tcp", args: [DEVICE_IP, DEVICE_PORT, 25000, 4000, 0] },
+        { name: "TCP Password = '0' (String)", type: "tcp", args: [DEVICE_IP, DEVICE_PORT, 25000, 4000, '0'] },
+        { name: "UDP Protocol (F22 Strict Mode)", type: "udp", args: [DEVICE_IP, DEVICE_PORT, 25000, 4000] }
     ];
 
     console.log(\`[\${new Date().toLocaleString()}] Attempting connection to \${DEVICE_IP}...\`);
@@ -187,7 +188,16 @@ async function sync() {
         try {
             console.log(\`Trying Strategy \${i+1}: \${strategies[i].name}...\`);
             zkInstance = new ZKLib(...strategies[i].args);
-            await zkInstance.createSocket();
+            
+            if (strategies[i].type === 'tcp') {
+                await zkInstance.createSocket();
+            } else {
+                // Force UDP directly bypassing the faulty TCP fallback in zklib-js
+                await zkInstance.zklibUdp.createSocket();
+                await zkInstance.zklibUdp.connect();
+                zkInstance.connectionType = 'udp';
+            }
+            
             connected = true;
             console.log('✅ Connected successfully!');
             break;
