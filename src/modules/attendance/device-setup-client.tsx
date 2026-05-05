@@ -196,6 +196,24 @@ async function sync() {
         
         // Detailed Diagnostics for Troubleshooting
         if (errMsg.includes('timeout') || errMsg.includes('EHOSTUNREACH') || errMsg === 'Unknown Connection Error or Timeout') {
+            console.log('--- RUNNING ADVANCED RAW TCP TEST ---');
+            const net = require('net');
+            const client = new net.Socket();
+            client.setTimeout(5000);
+            client.connect(DEVICE_PORT, DEVICE_IP, function() {
+                console.log('✅ RAW TCP SUCCESS: Node.js CAN connect to the machine! The issue is within node-zklib protocol compatibility or Comm Key.');
+                client.destroy();
+            });
+            client.on('error', function(err) {
+                console.error('❌ RAW TCP ERROR: Node.js is BLOCKED from connecting! Reason:', err.message);
+                console.log('   -> This means your Windows Firewall or Antivirus is blocking Node.js.');
+            });
+            client.on('timeout', function() {
+                console.error('❌ RAW TCP TIMEOUT: Node.js connection timed out!');
+                console.log('   -> This means a firewall is dropping the connection or the port is closed.');
+                client.destroy();
+            });
+
             console.log('DIAGNOSTIC: 1. Ensure laptop & machine are on the SAME router.');
             console.log('DIAGNOSTIC: 2. Check if IP ' + DEVICE_IP + ' is correct on the machine settings.');
             console.log('DIAGNOSTIC: 3. Try to ping ' + DEVICE_IP + ' from your terminal.');
