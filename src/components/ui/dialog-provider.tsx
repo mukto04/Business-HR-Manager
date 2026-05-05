@@ -64,7 +64,7 @@ export function DialogProvider({ children }: { children: ReactNode }) {
     <DialogContext.Provider value={{ confirm, alert, danger, prompt }}>
       {children}
       {state.open && (
-        <div className="fixed inset-0 z-[999] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-[10001] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
           <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl overflow-hidden animate-fade-in">
             {/* ── Header ── */}
             <div className={`flex items-center gap-3 px-5 pt-5 pb-4 ${state.type === "danger" ? "border-b border-red-100" : "border-b border-slate-100"}`}>

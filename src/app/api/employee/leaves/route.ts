@@ -9,12 +9,25 @@ export async function GET() {
   }
 
   try {
-    const leaveBalances = await (await getTenantPrisma()).leaveBalance.findMany({
+    const prisma = await getTenantPrisma();
+    
+    // Get the latest leave balance
+    const leaveBalances = await prisma.leaveBalance.findMany({
       where: { employeeId },
-      orderBy: { year: "desc" }
+      orderBy: { year: "desc" },
+      take: 1
     });
 
-    return NextResponse.json(leaveBalances);
+    // Get all leave records
+    const leaveRecords = await prisma.leaveRecord.findMany({
+      where: { employeeId },
+      orderBy: { date: "desc" }
+    });
+
+    return NextResponse.json({
+      leaveBalance: leaveBalances[0] || null,
+      leaveRecords: leaveRecords || []
+    });
   } catch (error) {
     console.error("Leaves API error:", error);
     return NextResponse.json({ message: "Internal Error" }, { status: 500 });

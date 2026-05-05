@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTenantPrisma } from "@/lib/prisma";
 import { format } from "date-fns";
+import { calculateAttendanceStatus, syncLeaveBalanceForAttendance } from "@/lib/attendance-utils";
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,7 +15,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: "Logs must be an array" }, { status: 400 });
     }
 
-    const prisma = await getTenantPrisma();
+    const tenantSlug = request.headers.get("x-tenant-slug");
+    let prisma;
+    try {
+      if (tenantSlug && !['default', 'attendance', 'undefined', ''].includes(tenantSlug)) {
+        const { getPrismaBySlug } = await import("@/lib/prisma");
+        prisma = await getPrismaBySlug(tenantSlug);
+      } else {
+        prisma = await getTenantPrisma();
+      }
+    } catch (e) {
+      const { masterPrisma } = await import("@/lib/prisma");
+      prisma = masterPrisma;
+    }
+
+    const settings = await prisma.tenantSettings.findFirst();
+    const threshold = settings?.halfDayThreshold || 420;
 
     // 1. Verify Device
     const device = await prisma.attendanceDevice.findUnique({
@@ -31,8 +47,8 @@ export async function POST(request: NextRequest) {
     let skipCount = 0;
     let errorCount = 0;
 
-    // 2. Group logs by employee and date (just like the pull sync does)
-    const groupedLogs: Map<string, { earliest: Date; latest: Date; machineUserId: string }> = new Map();
+    // 2. Group logs by employee and date
+    const groupedLogs: Map<string, { timestamps: Date[]; machineUserId: string }> = new Map();
 
     for (const log of logs) {
       const { deviceUserId, recordTime } = log;
@@ -45,17 +61,21 @@ export async function POST(request: NextRequest) {
 
       const existingGroup = groupedLogs.get(key);
       if (!existingGroup) {
-        groupedLogs.set(key, { earliest: recordDate, latest: recordDate, machineUserId: normalizedId });
+        groupedLogs.set(key, { timestamps: [recordDate], machineUserId: normalizedId });
       } else {
-        if (recordDate < existingGroup.earliest) existingGroup.earliest = recordDate;
-        if (recordDate > existingGroup.latest) existingGroup.latest = recordDate;
+        existingGroup.timestamps.push(recordDate);
       }
     }
 
     // 3. Process grouped sessions
     for (const [key, data] of groupedLogs.entries()) {
       try {
-        const { machineUserId, earliest, latest } = data;
+        const { machineUserId, timestamps } = data;
+        
+        // Sort timestamps to find In, Out, and Breaks
+        timestamps.sort((a, b) => a.getTime() - b.getTime());
+        const earliest = timestamps[0];
+        const latest = timestamps[timestamps.length - 1];
 
         // Find employee by fingerprintId
         const employee = await prisma.employee.findFirst({
@@ -70,61 +90,95 @@ export async function POST(request: NextRequest) {
         const dateObj = new Date(earliest);
         dateObj.setHours(0, 0, 0, 0);
 
-        // Check if attendance already exists
-        const existing = await prisma.attendance.findUnique({
-          where: {
-            employeeId_date: {
-              employeeId: employee.id,
-              date: dateObj,
-            },
-          },
-        });
-
-        // Determine if we have a valid checkout (at least 5 minutes gap)
-        const hasValidCheckout = latest.getTime() - earliest.getTime() >= 5 * 60 * 1000;
-
-        if (!existing) {
-          // No record for this day: Create it
-          await prisma.attendance.create({
-            data: {
-              employeeId: employee.id,
-              date: dateObj,
-              checkIn: earliest,
-              checkOut: hasValidCheckout ? latest : null,
-              status: "PRESENT",
-              isManual: false,
+        await prisma.$transaction(async (tx) => {
+          // A. Handle Attendance (In/Out)
+          const existing = await tx.attendance.findUnique({
+            where: {
+              employeeId_date: {
+                employeeId: employee.id,
+                date: dateObj,
+              },
             },
           });
-          syncCount++;
-        } else {
-          // Record exists: Update it with the absolute min/max
-          let updateData: any = {};
-          
-          if (!existing.checkIn || earliest < existing.checkIn) {
-            updateData.checkIn = earliest;
-          }
-          
-          const effectiveCheckIn = updateData.checkIn || existing.checkIn;
-          const isCheckoutNewer = !existing.checkOut || latest > existing.checkOut;
-          const isAfterThreshold = latest.getTime() - new Date(effectiveCheckIn).getTime() >= 5 * 60 * 1000;
 
-          if (isCheckoutNewer && isAfterThreshold) {
-            updateData.checkOut = latest;
-          }
+          const hasValidCheckout = latest.getTime() - earliest.getTime() >= 5 * 60 * 1000;
 
-          if (Object.keys(updateData).length > 0) {
-            await prisma.attendance.update({
-              where: { id: existing.id },
+          if (!existing) {
+            const finalStatus = calculateAttendanceStatus(earliest, hasValidCheckout ? latest : null);
+            await tx.attendance.create({
               data: {
-                ...updateData,
+                employeeId: employee.id,
+                date: dateObj,
+                checkIn: earliest,
+                checkOut: hasValidCheckout ? latest : null,
+                status: finalStatus,
                 isManual: false,
               },
             });
+            await syncLeaveBalanceForAttendance(tx, employee.id, null, finalStatus, dateObj);
             syncCount++;
-          } else {
+          } else if (existing.isManual) {
+            // Manual data takes precedence. Do not overwrite.
             skipCount++;
+          } else {
+            let updateData: any = {};
+            if (!existing.checkIn || earliest < existing.checkIn) updateData.checkIn = earliest;
+            
+            const effectiveCheckIn = updateData.checkIn || existing.checkIn;
+            const isCheckoutNewer = !existing.checkOut || latest > existing.checkOut;
+            const isAfterThreshold = latest.getTime() - new Date(effectiveCheckIn).getTime() >= 5 * 60 * 1000;
+
+            if (isCheckoutNewer && isAfterThreshold) updateData.checkOut = latest;
+
+            if (Object.keys(updateData).length > 0) {
+              const finalCheckIn = updateData.checkIn || existing.checkIn;
+              const finalCheckOut = updateData.checkOut || existing.checkOut;
+              const finalStatus = calculateAttendanceStatus(finalCheckIn, finalCheckOut, threshold);
+              await tx.attendance.update({
+                where: { id: existing.id },
+                data: { ...updateData, status: finalStatus, isManual: false },
+              });
+              await syncLeaveBalanceForAttendance(tx, employee.id, existing.status, finalStatus, dateObj);
+              syncCount++;
+            } else {
+              skipCount++;
+            }
           }
-        }
+
+          // B. Handle Breaks (Intermediate Punches)
+          // If there are 4 punches: In, BreakStart, BreakEnd, Out
+          // If there are 6 punches: In, B1S, B1E, B2S, B2E, Out
+          if (timestamps.length >= 4) {
+             for (let i = 1; i < timestamps.length - 1; i += 2) {
+                const bStart = timestamps[i];
+                const bEnd = timestamps[i + 1];
+                
+                if (bStart && bEnd && bEnd.getTime() - bStart.getTime() > 1 * 60 * 1000) {
+                   // Check if this break already recorded to avoid duplicates
+                   const existingBreak = await tx.breakRecord.findFirst({
+                      where: {
+                         employeeId: employee.id,
+                         startTime: bStart,
+                         endTime: bEnd
+                      }
+                   });
+
+                   if (!existingBreak) {
+                      const duration = Math.round((bEnd.getTime() - bStart.getTime()) / (1000 * 60));
+                      await tx.breakRecord.create({
+                         data: {
+                            employeeId: employee.id,
+                            date: dateObj,
+                            startTime: bStart,
+                            endTime: bEnd,
+                            duration
+                         }
+                      });
+                   }
+                }
+             }
+          }
+        });
       } catch (e) {
         console.error(`Sync Push Error for ${key}:`, e);
         errorCount++;

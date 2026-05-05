@@ -21,21 +21,19 @@ export async function GET(request: NextRequest) {
       orderBy: { date: "desc" },
     });
 
-    // Calculate previous month balance for running total if needed
+    // Calculate cumulative opening balance from all previous transactions
     let previousBalance = 0;
     if (month && year) {
-      let prevMonth = month - 1;
-      let prevYear = year;
-      if (prevMonth === 0) {
-        prevMonth = 12;
-        prevYear = year - 1;
-      }
-
-      const prevTransactions = await prisma.costTransaction.findMany({
-        where: { month: prevMonth, year: prevYear },
+      const allPrevTransactions = await prisma.costTransaction.findMany({
+        where: {
+          OR: [
+            { year: { lt: year } },
+            { year: year, month: { lt: month } }
+          ]
+        },
       });
 
-      prevTransactions.forEach((t) => {
+      allPrevTransactions.forEach((t) => {
         if (t.type === "INCOME") previousBalance += t.amount;
         else previousBalance -= t.amount;
       });

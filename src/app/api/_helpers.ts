@@ -17,7 +17,8 @@ export const employeeSchema = z.object({
   guardianRelation: z.string().optional().nullable().or(z.literal("")),
   guardianPhone: z.string().optional().nullable().or(z.literal("")),
   nidNumber: z.string().optional().nullable().or(z.literal("")),
-  educationStatus: z.string().optional().nullable().or(z.literal(""))
+  educationStatus: z.string().optional().nullable().or(z.literal("")),
+  customData: z.any().optional()
 });
 
 export const holidaySchema = z.object({
@@ -80,18 +81,29 @@ export function toLoanPayload(input: z.infer<typeof loanSchema>) {
   };
 }
 
-export function toSalaryPayload(input: z.infer<typeof salarySchema>) {
+export function toSalaryPayload(input: z.infer<typeof salarySchema>, percentages?: any) {
+  const b = calculateSalaryBreakdown(input.totalSalary, percentages);
   return {
     ...input,
-    ...calculateSalaryBreakdown(input.totalSalary)
+    basicSalary: b.basicSalary,
+    hra: b.hra,
+    medicalAllowance: b.medicalAllowance,
+    travelAllowance: b.travelAllowance,
+    others: b.others,
+    breakdown: b.breakdown
   };
 }
 
-export function toMonthlySalaryPayload(input: z.infer<typeof monthlySalarySchema>) {
-  const { festivalBonus, ...breakdown } = calculateSalaryBreakdown(input.totalSalary);
+export function toMonthlySalaryPayload(input: z.infer<typeof monthlySalarySchema>, percentages?: any) {
+  const b = calculateSalaryBreakdown(input.totalSalary, percentages);
   return {
     ...input,
-    ...breakdown
+    basicSalary: b.basicSalary,
+    hra: b.hra,
+    medicalAllowance: b.medicalAllowance,
+    travelAllowance: b.travelAllowance,
+    others: b.others,
+    breakdown: b.breakdown
   };
 }
 

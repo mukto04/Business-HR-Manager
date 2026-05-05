@@ -5,9 +5,11 @@ import { AdvanceSalary, Employee, Loan } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { Combobox } from "@/components/ui/combobox";
 import { Textarea } from "@/components/ui/textarea";
-import { calculateDueAmount, formatCurrency } from "@/utils/calculations";
+import { Combobox } from "@/components/ui/combobox";
+import { calculateDueAmount } from "@/utils/calculations";
+import { useCurrencyFormatter } from "@/hooks/use-currency-formatter";
+import { useTranslation } from "@/hooks/use-translation";
 
 export function LoanForm({
   employees,
@@ -26,6 +28,8 @@ export function LoanForm({
 }) {
   const currentMonth = new Date().getMonth() + 1;
   const currentYear = new Date().getFullYear();
+  const fmt = useCurrencyFormatter();
+  const { t } = useTranslation();
 
   const [form, setForm] = useState({
     employeeId: "",
@@ -132,6 +136,13 @@ export function LoanForm({
       onSubmit={async (e) => {
         e.preventDefault();
         setError(null);
+
+        const newInstallment = Number(form.installmentAmount);
+        if (newInstallment > payableSalary) {
+          setError(`${t("Monthly installment exceeds the remaining payable salary")} (${t("Available:")} ${fmt(payableSalary)})`);
+          return;
+        }
+
         setSubmitting(true);
         try {
           await onSubmit({
@@ -144,7 +155,7 @@ export function LoanForm({
             note: form.note
           });
         } catch (err: any) {
-          setError(err.message || "Something went wrong.");
+          setError(err.message || t("Something went wrong."));
         } finally {
           setSubmitting(false);
         }
@@ -157,53 +168,53 @@ export function LoanForm({
       )}
       <div className="space-y-1.5">
         <label className="block text-sm font-medium text-slate-700">
-          Select Employee
+          {t("Select Employee")}
         </label>
         <Combobox
           options={employees}
           value={form.employeeId}
           onChange={(val) => setForm({ ...form, employeeId: val })}
           disabled={!!initialData}
-          placeholder="Search and select employee..."
+          placeholder={t("Search and select employee...")}
         />
       </div>
       <div className={`grid gap-4 ${initialData ? "md:grid-cols-2" : "md:grid-cols-1"}`}>
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-slate-700">Loan Amount</label>
+          <label className="mb-1.5 block text-sm font-medium text-slate-700">{t("Loan Amount")}</label>
           <Input type="number" min="0" placeholder="0" value={form.loanAmount} onChange={(e) => setForm({ ...form, loanAmount: e.target.value })} />
         </div>
         {initialData && (
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-slate-700">Paid Amount</label>
+            <label className="mb-1.5 block text-sm font-medium text-slate-700">{t("Paid Amount")}</label>
             <Input type="number" min="0" placeholder="0" value={form.paidAmount} onChange={(e) => setForm({ ...form, paidAmount: e.target.value })} />
           </div>
         )}
       </div>
       <div>
-        <label className="mb-1.5 block text-sm font-medium text-slate-700">Monthly Installment Amount</label>
+        <label className="mb-1.5 block text-sm font-medium text-slate-700">{t("Monthly Installment Amount")}</label>
         <Input type="number" min="0" placeholder="0" value={form.installmentAmount} onChange={(e) => setForm({ ...form, installmentAmount: e.target.value })} />
       </div>
       <div className="grid gap-4 md:grid-cols-2">
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-slate-700">Installment Start Month</label>
+          <label className="mb-1.5 block text-sm font-medium text-slate-700">{t("Installment Start Month")}</label>
           <Select value={form.startMonth} onChange={(e) => setForm({ ...form, startMonth: e.target.value })}>
-            {availableMonths.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+            {availableMonths.map(m => <option key={m.value} value={m.value}>{t(m.label)}</option>)}
           </Select>
         </div>
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-slate-700">Installment Start Year</label>
+          <label className="mb-1.5 block text-sm font-medium text-slate-700">{t("Installment Start Year")}</label>
           <Select value={form.startYear} onChange={(e) => setForm({ ...form, startYear: e.target.value })}>
             {years.map(y => <option key={y} value={String(y)}>{y}</option>)}
           </Select>
         </div>
       </div>
-      <Textarea placeholder="Note" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} />
+      <Textarea placeholder={t("Note")} value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} />
       <div className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-700">
-        Due amount: <span className="font-semibold">{formatCurrency(due)}</span>
+        {t("Due amount:")} <span className="font-semibold">{fmt(due)}</span>
       </div>
       <div className="flex justify-end gap-3">
-        <Button type="button" variant="secondary" onClick={onCancel} disabled={submitting}>Cancel</Button>
-        <Button type="submit" disabled={submitting}>{submitting ? "Saving..." : "Save Loan"}</Button>
+        <Button type="button" variant="secondary" onClick={onCancel} disabled={submitting}>{t("Cancel")}</Button>
+        <Button type="submit" disabled={submitting}>{submitting ? t("Saving...") : t("Save Loan")}</Button>
       </div>
     </form>
   );

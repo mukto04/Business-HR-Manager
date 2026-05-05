@@ -65,7 +65,13 @@ function LoginContent() {
 
       // Redirect to branded dashboard URL for professional appearance
       const companySlug = data.slug || slug;
-      router.push(`/${companySlug}-hr/dashboard`);
+      const callbackUrl = searchParams.get("redirect");
+
+      if (callbackUrl) {
+        router.push(callbackUrl);
+      } else {
+        router.push(`/${companySlug}-hr/dashboard`);
+      }
       router.refresh();
     } catch (err: any) {
       setError("Network error. Please try again.");

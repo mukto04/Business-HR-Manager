@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
 import { useState, useEffect } from "react";
+import { useNavigationStore } from "@/stores/use-navigation-store";
 
 const AUTH_ROUTES = ["/", "/login", "/employee-login", "/employee", "/setup", "/super-admin"];
 
@@ -16,9 +17,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const isBrandedEmpUrl = pathname.endsWith("-employee");
   const isAuthPage = isBrandedHrUrl || isBrandedEmpUrl || AUTH_ROUTES.some(r => pathname === r || pathname.startsWith(`${r}/`));
 
+  const { isNavigating, setIsNavigating } = useNavigationStore();
+
   useEffect(() => {
     setIsSidebarOpen(false);
-  }, [pathname]);
+    setIsNavigating(false); // Reset navigation state when page changes
+  }, [pathname, setIsNavigating]);
 
   if (isAuthPage) {
     // Render login / public pages without any chrome
@@ -26,7 +30,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 print:bg-white">
+    <div className="min-h-screen bg-slate-50 print:bg-white relative">
+      {/* Top Navigation Progress Bar */}
+      {isNavigating && (
+        <div className="fixed top-0 left-0 right-0 z-[1000] h-[2px] bg-slate-100 overflow-hidden">
+          <div className="h-full bg-indigo-600 animate-progress-bar shadow-[0_0_8px_rgba(79,70,229,0.5)]"></div>
+        </div>
+      )}
+
       <div className="print:hidden">
         <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
       </div>

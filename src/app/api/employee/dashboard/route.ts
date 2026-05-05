@@ -9,60 +9,53 @@ export async function GET() {
   }
 
   try {
-    const employee = await (await getTenantPrisma()).employee.findUnique({
-      where: { id: employeeId },
-      include: {
-        leaveBalances: {
-          where: { year: new Date().getFullYear() }
-        },
-        loans: {
-          where: { dueAmount: { gt: 0 } }
-        },
-        advances: {
-          where: { month: new Date().getMonth() + 1, year: new Date().getFullYear(), isDeducted: false }
+    const prisma = await getTenantPrisma();
+    
+    // Parallel data fetching for high performance
+    const [employee, attendances, holidays] = await Promise.all([
+      prisma.employee.findUnique({
+        where: { id: employeeId },
+        include: {
+          leaveBalances: { where: { year: new Date().getFullYear() } },
+          loans: { where: { dueAmount: { gt: 0 } } },
         }
-      }
-    });
+      }),
+      prisma.attendance.findMany({
+        where: {
+          employeeId,
+          date: {
+            gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+            lte: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0)
+          }
+        }
+      }),
+      prisma.holiday.findMany({
+        where: { date: { gte: new Date() } },
+        orderBy: { date: "asc" },
+        take: 3
+      })
+    ]);
 
     if (!employee) {
       return NextResponse.json({ message: "Employee not found" }, { status: 404 });
     }
 
-    // Get attendance stats for current month
-    const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-    const endOfMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0);
-
-    const attendances = await (await getTenantPrisma()).attendance.findMany({
-      where: {
-        employeeId,
-        date: {
-          gte: startOfMonth,
-          lte: endOfMonth
-        }
-      }
-    });
-
-    const presentDays = attendances.filter(a => a.status === "PRESENT").length;
-    const absentDays = attendances.filter(a => a.status === "ABSENT").length;
-    const lateDays = attendances.filter(a => a.status === "LATE").length;
-
-    // Get upcoming holidays
-    const holidays = await (await getTenantPrisma()).holiday.findMany({
-      where: {
-        date: { gte: new Date() }
-      },
-      orderBy: { date: "asc" },
-      take: 3
-    });
+    const presentCount = attendances.filter(a => a.status === "PRESENT").length;
+    const leaveData = employee.leaveBalances[0] || { totalLeave: 0, dueLeave: 0 };
 
     return NextResponse.json({
-      employee,
-      stats: {
-        presentDays,
-        absentDays,
-        lateDays
+      employee: {
+        name: employee.name,
+        employeeCode: employee.employeeCode,
+        designation: employee.designation,
       },
-      upcomingHolidays: holidays
+      attendance: { presentCount },
+      leaves: { 
+        available: leaveData.dueLeave,
+        total: leaveData.totalLeave 
+      },
+      loans: { activeCount: employee.loans.length },
+      holidays
     });
 
   } catch (error) {

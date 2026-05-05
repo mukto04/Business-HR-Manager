@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Pencil, Plus, Trash2 } from "lucide-react";
-import { format } from "date-fns";
+import { format, isBefore, startOfDay } from "date-fns";
 import { PageHeader } from "@/components/ui/page-header";
 import { SearchFilterBar } from "@/components/ui/search-filter-bar";
 import { DataTable } from "@/components/ui/data-table";
@@ -17,6 +17,7 @@ import { sendJson } from "@/lib/http";
 import { getDayName } from "@/utils/calculations";
 import { HolidayForm } from "./holiday-form";
 import { useDialog } from "@/components/ui/dialog-provider";
+import { useTranslation } from "@/hooks/use-translation";
 
 export function HolidaysClient() {
   const { data, loading, error, refresh } = useAsyncData<Holiday[]>("/api/holidays", []);
@@ -27,6 +28,11 @@ export function HolidaysClient() {
   const [selected, setSelected] = useState<Holiday | undefined>();
   const [selectedYear, setSelectedYear] = useState<number>(currentYear);
   const dialog = useDialog();
+  const { t } = useTranslation();
+
+  const isPastHoliday = (dateString: string) => {
+    return isBefore(startOfDay(new Date(dateString)), startOfDay(new Date()));
+  };
 
   const years = useMemo(() => {
     const uniqueYears = new Set(data.map((item) => new Date(item.date).getFullYear()));
@@ -59,8 +65,8 @@ export function HolidaysClient() {
 
   async function remove(item: Holiday) {
     const ok = await dialog.danger(
-      `Delete "${item.name}"?`,
-      <p className="text-sm text-slate-600">This will permanently remove this holiday from the system.</p>
+      `${t("Delete")} "${item.name}"?`,
+      <p className="text-sm text-slate-600">{t("This will permanently remove this holiday from the system.")}</p>
     );
     if (!ok) return;
     await sendJson(`/api/holidays/${item.id}`, "DELETE");
@@ -73,11 +79,11 @@ export function HolidaysClient() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Holidays"
-        subtitle="Manage company holidays with auto day detection."
+        title={t("Holidays")}
+        subtitle={t("Manage company holidays with auto day detection.")}
         actions={
           <Button onClick={() => { setMode("create"); setSelected(undefined); setOpen(true); }}>
-            <Plus className="mr-2 h-4 w-4" /> Add Holiday
+            <Plus className="mr-2 h-4 w-4" /> {t("Add Holiday")}
           </Button>
         }
       />
@@ -85,11 +91,11 @@ export function HolidaysClient() {
       <SearchFilterBar
         value={query}
         onChange={setQuery}
-        placeholder="Search holidays..."
+        placeholder={t("Search holidays...")}
         rightSlot={
           <div className="flex items-center gap-3">
             <div className="flex h-10 items-center justify-center rounded-xl bg-orange-50 px-4 text-sm font-semibold text-orange-700">
-              Total {totalHolidaysInYear} Days
+              {t("Total")} {totalHolidaysInYear} {t("Days")}
             </div>
             <div className="w-32">
               <Select
@@ -109,14 +115,15 @@ export function HolidaysClient() {
 
       <DataTable
         data={filtered}
+        rowClassName={(row) => isPastHoliday(row.date) ? "opacity-50 grayscale bg-slate-50" : ""}
         columns={[
-          { key: "name", title: "Holiday", render: (row) => row.name },
-          { key: "date", title: "Date", render: (row) => format(new Date(row.date), "dd MMM yyyy") },
-          { key: "day", title: "Day", render: (row) => getDayName(row.date) },
-          { key: "days", title: "Total Days", render: (row) => row.totalDays },
+          { key: "name", title: t("Holiday"), render: (row) => row.name },
+          { key: "date", title: t("Date"), render: (row) => format(new Date(row.date), "dd MMM yyyy") },
+          { key: "day", title: t("Day"), render: (row) => t(getDayName(row.date)) },
+          { key: "days", title: t("Total Days"), render: (row) => row.totalDays },
           {
             key: "actions",
-            title: "Actions",
+            title: t("Actions"),
             render: (row) => (
               <div className="flex gap-2">
                 <Button variant="secondary" className="h-9 px-3" onClick={() => { setMode("edit"); setSelected(row); setOpen(true); }}>
@@ -133,7 +140,7 @@ export function HolidaysClient() {
 
       <Modal
         open={open}
-        title={mode === "create" ? "Add Holiday" : "Edit Holiday"}
+        title={mode === "create" ? t("Add Holiday") : t("Edit Holiday")}
         onClose={() => setOpen(false)}
       >
         <HolidayForm initialData={selected} onSubmit={submit} onCancel={() => setOpen(false)} />

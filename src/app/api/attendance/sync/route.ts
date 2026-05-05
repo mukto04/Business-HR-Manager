@@ -45,23 +45,26 @@ export async function POST(request: Request) {
 
     let attendance;
 
-    if (!existing) {
-      // First punch of the day: Check In
-      attendance = await (await getTenantPrisma()).attendance.create({
-        data: {
-          employeeId: employee.id,
-          date: dateStr,
-          checkIn: punchTime,
-          status: "PRESENT",
-          isManual: false,
-        }
-      });
-    } else {
-      // Subsequent punch: Determine if it's a new Check-In or a new Check-Out
-      let updateData: any = {};
-      
-      // If this punch is EARLIER than recorded checkIn, update checkIn
-      if (!existing.checkIn || punchTime < existing.checkIn) {
+      if (!existing) {
+        // First punch of the day: Check In
+        attendance = await (await getTenantPrisma()).attendance.create({
+          data: {
+            employeeId: employee.id,
+            date: dateStr,
+            checkIn: punchTime,
+            status: "PRESENT",
+            isManual: false,
+          }
+        });
+      } else if (existing.isManual) {
+        // Manual data takes precedence. Do not overwrite.
+        attendance = existing;
+      } else {
+        // Subsequent punch: Determine if it's a new Check-In or a new Check-Out
+        let updateData: any = {};
+        
+        // If this punch is EARLIER than recorded checkIn, update checkIn
+        if (!existing.checkIn || punchTime < existing.checkIn) {
         updateData.checkIn = punchTime;
       }
       

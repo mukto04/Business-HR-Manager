@@ -16,8 +16,9 @@ import { format } from "date-fns";
 import { LoadingState } from "@/modules/shared/loading-state";
 import { ErrorState } from "@/modules/shared/error-state";
 import { LoanForm } from "./loan-form";
-import { formatCurrency } from "@/utils/calculations";
+import { useCurrencyFormatter } from "@/hooks/use-currency-formatter";
 import { useDialog } from "@/components/ui/dialog-provider";
+import { useTranslation } from "@/hooks/use-translation";
 
 export function LoansClient() {
   const loans = useAsyncData<Loan[]>("/api/loans", []);
@@ -28,6 +29,8 @@ export function LoansClient() {
   const [mode, setMode] = useState<ModalMode>("create");
   const [selected, setSelected] = useState<Loan | undefined>();
   const dialog = useDialog();
+  const fmt = useCurrencyFormatter();
+  const { t } = useTranslation();
 
   const filtered = useMemo(() => {
     return loans.data.filter((item) =>
@@ -48,8 +51,8 @@ export function LoansClient() {
 
   async function remove(item: Loan) {
     const ok = await dialog.danger(
-      "Delete this loan?",
-      <p className="text-sm text-slate-600">This will permanently remove <strong>{item.employee?.name}</strong>'s loan record. This cannot be undone.</p>
+      t("Delete this loan?"),
+      <p className="text-sm text-slate-600">{t("This will permanently remove {name}'s loan record. This cannot be undone.", { name: item.employee?.name })}</p>
     );
     if (!ok) return;
     await sendJson(`/api/loans/${item.id}`, "DELETE");
@@ -64,44 +67,46 @@ export function LoansClient() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Loan Management"
-        subtitle="Track employee loans, paid amounts and due balance."
+        title={t("Loan Management")}
+        subtitle={t("Track employee loans, paid amounts and due balance.")}
         actions={
           <div className="flex gap-3">
             <Link href="/loans/history">
-              <Button variant="secondary">History</Button>
+              <Button variant="secondary">{t("History")}</Button>
             </Link>
             <Button onClick={() => { setMode("create"); setSelected(undefined); setOpen(true); }}>
-              <Plus className="mr-2 h-4 w-4" /> Add Loan
+              <Plus className="mr-2 h-4 w-4" /> {t("Add Loan")}
             </Button>
           </div>
         }
       />
 
-      <SearchFilterBar value={query} onChange={setQuery} placeholder="Search loans by employee..." />
+      <SearchFilterBar value={query} onChange={setQuery} placeholder={t("Search loans by employee...")} />
 
       <DataTable
         data={filtered}
         columns={[
-          { key: "employee", title: "Employee", render: (row) => row.employee?.name || "-" },
-          { key: "date", title: "Apply Date", render: (row) => row.createdAt ? format(new Date(row.createdAt), "dd MMM yyyy") : "-" },
-          { key: "loanAmount", title: "Loan Amount", render: (row) => formatCurrency(row.loanAmount) },
-          { key: "installmentAmount", title: "Monthly Installment", render: (row) => formatCurrency(row.installmentAmount || 0) },
+          { key: "employee", title: t("Employee"), render: (row) => row.employee?.name || "-" },
+          { key: "date", title: t("Apply Date"), render: (row) => row.createdAt ? format(new Date(row.createdAt), "dd MMM yyyy") : "-" },
+          { key: "loanAmount", title: t("Loan Amount"), render: (row) => fmt(row.loanAmount) },
+          { key: "installmentAmount", title: t("Monthly Installment"), render: (row) => fmt(row.installmentAmount || 0) },
           { 
             key: "startsFrom", 
-            title: "Starts From", 
+            title: t("Starts From"), 
             render: (row) => {
-              if (!row.startMonth || !row.startYear) return <span className="text-slate-500 italic">Immediate</span>;
+              if (!row.startMonth || !row.startYear) return <span className="text-slate-500 italic">{t("Immediate")}</span>;
               const date = new Date(row.startYear, row.startMonth - 1);
+              // Wrap the format result in t() to get translated month if we added them to dict, otherwise just use format.
+              // We've added month names like January, etc. But date-fns format "MMM yyyy" gives "Jan 2026". We'll just leave it for now or implement a custom month formatter.
               return <span className="font-medium text-blue-600">{format(date, "MMM yyyy")}</span>;
             } 
           },
-          { key: "paidAmount", title: "Paid Amount", render: (row) => formatCurrency(row.paidAmount) },
-          { key: "dueAmount", title: "Due Amount", render: (row) => <span className="font-medium">{formatCurrency(row.dueAmount)}</span> },
-          { key: "note", title: "Note", render: (row) => row.note || "-" },
+          { key: "paidAmount", title: t("Paid Amount"), render: (row) => fmt(row.paidAmount) },
+          { key: "dueAmount", title: t("Due Amount"), render: (row) => <span className="font-medium">{fmt(row.dueAmount)}</span> },
+          { key: "note", title: t("Note"), render: (row) => row.note || "-" },
           {
             key: "actions",
-            title: "Actions",
+            title: t("Actions"),
             render: (row) => (
               <div className="flex gap-2">
                 <Button variant="secondary" className="h-9 px-3" onClick={() => { setMode("edit"); setSelected(row); setOpen(true); }}>
@@ -118,7 +123,7 @@ export function LoansClient() {
 
       <Modal
         open={open}
-        title={mode === "create" ? "Add Loan" : "Edit Loan"}
+        title={mode === "create" ? t("Add Loan") : t("Edit Loan")}
         onClose={() => setOpen(false)}
       >
         <LoanForm employees={employees.data} advances={advances.data} loans={loans.data} initialData={selected} onSubmit={submit} onCancel={() => setOpen(false)} />

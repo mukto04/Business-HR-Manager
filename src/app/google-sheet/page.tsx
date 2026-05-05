@@ -77,18 +77,30 @@ export default function GoogleSheetPage() {
   const getEmbedUrl = (rawUrl: string) => {
     if (!rawUrl) return null;
     
-    // If it's already a pubhtml link, use it
-    if (rawUrl.includes("/pubhtml")) return rawUrl;
+    const trimmedUrl = rawUrl.trim();
+
+    // 1. Handle "Publish to Web" (pubhtml) links - these are best for embedding
+    if (trimmedUrl.includes("/pubhtml")) {
+       let embed = trimmedUrl;
+       if (!embed.includes("widget=")) {
+         embed += (embed.includes("?") ? "&" : "?") + "widget=true";
+       }
+       if (!embed.includes("headers=")) {
+         embed += "&headers=false";
+       }
+       return embed;
+    }
     
-    // If it's a standard spreadsheet link, try to convert to preview/embed
-    if (rawUrl.includes("docs.google.com/spreadsheets/d/")) {
-      const match = rawUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
+    // 2. Handle standard spreadsheet links
+    if (trimmedUrl.includes("docs.google.com/spreadsheets/d/")) {
+      const match = trimmedUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
       if (match && match[1]) {
-        return `https://docs.google.com/spreadsheets/d/${match[1]}/preview?usp=embed_google_sheet`;
+        // Switch to /edit for better management (editing) support within the page
+        return `https://docs.google.com/spreadsheets/d/${match[1]}/edit?widget=true&headers=false&rm=demo`;
       }
     }
     
-    return rawUrl;
+    return trimmedUrl;
   };
 
   const embedUrl = url ? getEmbedUrl(url) : null;
@@ -109,11 +121,10 @@ export default function GoogleSheetPage() {
                    <Button variant="secondary" size="sm" onClick={() => setIsSettingsOpen(true)}>
                       <Settings2 className="mr-2 h-4 w-4" /> Configure Link
                    </Button>
-                   <a href={url} target="_blank" rel="noopener noreferrer">
-                     <Button variant="ghost" size="sm" className="hidden md:flex">
-                        <ExternalLink className="mr-2 h-4 w-4" /> Open Original
-                     </Button>
-                   </a>
+                   <div className="hidden md:flex gap-2 p-1 px-3 bg-brand-50 text-brand-700 text-[10px] font-bold rounded-xl border border-brand-100 items-center">
+                      <div className="w-2 h-2 rounded-full bg-brand-500 animate-pulse" />
+                      Management Mode Enabled
+                   </div>
                  </>
                )}
             </div>
@@ -137,48 +148,92 @@ export default function GoogleSheetPage() {
                <p className="text-slate-500 mb-10 leading-relaxed text-lg">
                   Integrate your external Google Sheets directly into this dashboard. Copy your spreadsheet URL and paste it below to get started.
                </p>
-               
-               <form onSubmit={handleSave} className="w-full space-y-4 bg-slate-50 p-8 rounded-3xl border border-slate-100 mb-8">
-                  <div className="space-y-2 text-left">
+                             <form onSubmit={handleSave} className="w-full space-y-4 bg-slate-50 p-8 rounded-3xl border border-slate-100 mb-8">
+                  <div className="space-y-4 text-left">
                     <label className="text-sm font-bold text-slate-700 ml-1">Google Sheet URL</label>
-                    <div className="flex gap-2">
+                    <div className="flex flex-col sm:flex-row gap-3">
                        <Input 
                           placeholder="https://docs.google.com/spreadsheets/d/..." 
                           value={inputUrl}
                           onChange={(e) => setInputUrl(e.target.value)}
-                          className="flex-1 h-12 rounded-xl bg-white focus:ring-brand-500"
+                          className="flex-1 h-12 rounded-xl bg-white focus:ring-brand-500 shadow-sm border-slate-200"
                        />
-                       <Button type="submit" disabled={saving} className="h-12 px-6 rounded-xl bg-brand-600 hover:bg-brand-700">
-                          {saving ? "Saving..." : "Save & Connect"}
+                       <Button type="submit" disabled={saving} className="h-12 px-8 rounded-xl bg-brand-600 hover:bg-brand-700 shadow-lg shadow-brand-200">
+                          {saving ? "Connecting..." : "Save & Connect"}
                        </Button>
+                    </div>
+                    <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100/50 flex align-start gap-4">
+                       <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
+                          <Settings2 size={20} />
+                       </div>
+                       <div className="space-y-1">
+                          <p className="text-sm font-bold text-blue-800">Best Practice for Embedding</p>
+                          <p className="text-xs text-blue-600 leading-relaxed">
+                            For the best experience, use the <strong>"Publish to the web"</strong> link. 
+                            In your sheet, go to <b>File {">"} Share {">"} Publish to web</b>, select 'Embed', and copy that link.
+                          </p>
+                       </div>
                     </div>
                   </div>
                </form>
 
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left w-full">
-                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                    <div className="font-bold text-slate-700 mb-1 flex items-center gap-2">
-                      <div className="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[10px]">1</div>
+               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-left w-full">
+                  <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100 group hover:border-brand-200 transition-colors">
+                    <div className="font-bold text-slate-700 mb-2 flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-[10px] group-hover:bg-brand-100 group-hover:text-brand-600">1</div>
                       Open Sheet
                     </div>
-                    <p className="text-xs text-slate-500">Go to your Google Sheet in your browser.</p>
+                    <p className="text-xs text-slate-500">Go to your Google Sheet in your web browser.</p>
                   </div>
-                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                    <div className="font-bold text-slate-700 mb-1 flex items-center gap-2">
-                      <div className="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[10px]">2</div>
-                      Copy URL
+                  <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100 group hover:border-brand-200 transition-colors">
+                    <div className="font-bold text-slate-700 mb-2 flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-[10px] group-hover:bg-brand-100 group-hover:text-brand-600">2</div>
+                      Publish to Web
                     </div>
-                    <p className="text-xs text-slate-500">Copy the URL or 'Publish to web' link.</p>
+                    <p className="text-xs text-slate-500">File {">"} Share {">"} Publish to web {">"} Embed.</p>
+                  </div>
+                  <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100 group hover:border-brand-200 transition-colors">
+                    <div className="font-bold text-slate-700 mb-2 flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-[10px] group-hover:bg-brand-100 group-hover:text-brand-600">3</div>
+                      Copy & Paste
+                    </div>
+                    <p className="text-xs text-slate-500">Paste the URL here and click Connect.</p>
                   </div>
                </div>
             </div>
           ) : (
-            <iframe
-              src={embedUrl || ""}
-              className="w-full h-full border-none bg-white"
-              title="Company Spreadsheet"
-              allowFullScreen
-            />
+            <div className="w-full h-full relative group">
+              <iframe
+                src={embedUrl || ""}
+                className="w-full h-full border-none bg-white"
+                title="Company Spreadsheet"
+                allowFullScreen
+              />
+              
+              {/* Floating Troubleshooting Information */}
+              <div className="absolute bottom-8 right-8 max-w-sm bg-white/95 backdrop-blur shadow-2xl rounded-3xl border border-slate-200 p-5 transform translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300">
+                <div className="flex items-start gap-4">
+                   <div className="w-10 h-10 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center shrink-0">
+                      <AlertCircle size={20} />
+                   </div>
+                   <div className="space-y-2">
+                      <p className="text-sm font-bold text-slate-800">লগিন এর সমস্যা হচ্ছে? (Login Issues?)</p>
+                      <p className="text-xs text-slate-500 leading-relaxed">
+                        Brave বা Chrome-এ যদি <b>"Sign in"</b> দেখা যায়, তবে ব্রাউজারের <b>Lion (Shield)</b> আইকনে ক্লিক করে <b>Shields Off</b> করুন অথবা <b>Allow all cookies</b> দিন।
+                      </p>
+                      <p className="text-[10px] text-slate-400 font-medium">
+                        Google requires 3rd-party cookies to manage spreadsheets inside frames.
+                      </p>
+                   </div>
+                </div>
+              </div>
+
+              {/* Permanent Edit Help Bar */}
+              <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-slate-900/80 backdrop-blur text-white px-4 py-1.5 rounded-full text-[10px] font-medium flex items-center gap-2 opacity-40 hover:opacity-100 transition-opacity">
+                 <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                 Editing is enabled. If prompted, please sign in outside the dashboard once.
+              </div>
+            </div>
           )}
         </Card>
       </div>
@@ -203,7 +258,12 @@ export default function GoogleSheetPage() {
                     onChange={(e) => setInputUrl(e.target.value)}
                     className="h-11 rounded-xl"
                   />
-                  <p className="text-[10px] text-slate-400 font-medium">Link should be like: docs.google.com/spreadsheets/d/SPREADSHEET_ID</p>
+                  <div className="flex flex-col gap-1 mt-2">
+                    <p className="text-[10px] text-slate-400 font-medium">Link should be like: docs.google.com/spreadsheets/d/SPREADSHEET_ID</p>
+                    <p className="text-[10px] text-brand-600 font-bold bg-brand-50 self-start px-2 py-0.5 rounded-full">
+                       Best: File {'->'} Share {'->'} Publish to web {'->'} Embed (Link)
+                    </p>
+                  </div>
                </div>
             </div>
 

@@ -144,4 +144,10 @@ export interface DashboardSummary {
   birthdayEmployees: Array<{ id: string; name: string; date: string }>;
   anniversaryEmployees: Array<{ id: string; name: string; date: string }>;
   expenseChart: Array<{ name: string; amount: number }>;
+  attendanceToday: {
+    present: number;
+    absent: number;
+    late: number;
+    onLeave: number;
+  };
 }

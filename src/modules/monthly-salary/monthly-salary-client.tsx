@@ -14,9 +14,10 @@ import { sendJson } from "@/lib/http";
 import { MonthlySalaryForm } from "./monthly-salary-form";
 import { LoadingState } from "@/modules/shared/loading-state";
 import { ErrorState } from "@/modules/shared/error-state";
-import { formatCurrency } from "@/utils/calculations";
+import { useCurrencyFormatter } from "@/hooks/use-currency-formatter";
 import { Select } from "@/components/ui/select";
 import { useDialog } from "@/components/ui/dialog-provider";
+import { useTranslation } from "@/hooks/use-translation";
 
 const monthMap: Record<number, string> = {
   1: "Jan", 2: "Feb", 3: "Mar", 4: "Apr", 5: "May", 6: "Jun",
@@ -32,7 +33,38 @@ export function MonthlySalaryClient() {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<ModalMode>("create");
   const [selected, setSelected] = useState<MonthlySalary | undefined>();
+  const [percentages, setPercentages] = useState<any[]>([]);
+  const fmt = useCurrencyFormatter();
   const dialog = useDialog();
+  const { t } = useTranslation();
+
+  const fetchSettings = async () => {
+    try {
+      const res = await fetch("/api/settings/attendance");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.salaryStructure) {
+          const structure = data.salaryStructure;
+          if (structure && !Array.isArray(structure)) {
+            const normalized = Object.entries(structure).map(([key, val]: [string, any]) => ({
+              id: key,
+              label: typeof val === 'object' ? (val.label || key) : key,
+              percent: typeof val === 'object' ? (val.percent || 0) : (val || 0)
+            }));
+            setPercentages(normalized);
+          } else {
+            setPercentages(structure);
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Failed to fetch salary settings");
+    }
+  };
+
+  useMemo(() => {
+    fetchSettings();
+  }, []);
 
   const years = useMemo(() => {
     const current = new Date().getFullYear();
@@ -63,8 +95,8 @@ export function MonthlySalaryClient() {
 
   async function remove(item: MonthlySalary) {
     const ok = await dialog.danger(
-      `Delete monthly salary record?`,
-      <p className="text-slate-600 text-sm">This will permanently delete <strong>{item.employee?.name}</strong>'s record for {monthMap[item.month]} {item.year}. This cannot be undone.</p>
+      t("Delete monthly salary record?"),
+      <p className="text-slate-600 text-sm">{t("This will permanently delete <strong>{name}</strong>'s record for {month} {year}. This cannot be undone.", { name: item.employee?.name, month: t(monthMap[item.month]), year: item.year })}</p>
     );
     if (!ok) return;
     await sendJson(`/api/monthly-salary/${item.id}`, "DELETE");
@@ -161,6 +193,15 @@ export function MonthlySalaryClient() {
     }
   }
 
+  const totals = useMemo(() => {
+    return filtered.reduce((acc, curr) => {
+      acc.total += curr.payableSalary || 0;
+      if (curr.isPaid) acc.paid += curr.payableSalary || 0;
+      if (curr.isHeld) acc.held += curr.payableSalary || 0;
+      return acc;
+    }, { total: 0, paid: 0, held: 0 });
+  }, [filtered]);
+
   if (records.loading || employees.loading) return <LoadingState />;
   if (records.error) return <ErrorState message={records.error} />;
   if (employees.error) return <ErrorState message={employees.error} />;
@@ -168,21 +209,36 @@ export function MonthlySalaryClient() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Monthly Salary"
-        subtitle="Monthly payout records with breakdown and total paid."
+        title={t("Monthly Salary")}
+        subtitle={t("Monthly payout records with breakdown and total paid.")}
         actions={
-          <div className="flex gap-3">
-            <Button variant="secondary" onClick={applyBulkBonus}>
-              Festival Bonus %
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={closeMonth}
-              className="border-orange-300 text-orange-700 hover:bg-orange-50"
-            >
-              <Lock className="mr-2 h-4 w-4" /> Close Month
-            </Button>
-            {/* Add Monthly Salary button removed as per user request */}
+          <div className="flex flex-col md:flex-row items-center gap-6">
+            <div className="flex items-center gap-8 px-6 py-2 border-r border-slate-200">
+              <div className="text-right">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{t("Total Payable")}</p>
+                <p className="text-xl font-black text-slate-900">{fmt(totals.total)}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">{t("Paid Amount")}</p>
+                <p className="text-xl font-black text-emerald-600">{fmt(totals.paid)}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-[10px] font-bold text-orange-500 uppercase tracking-widest">{t("Hold Amount")}</p>
+                <p className="text-xl font-black text-orange-600">{fmt(totals.held)}</p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <Button variant="secondary" onClick={applyBulkBonus}>
+                {t("Festival Bonus %")}
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={closeMonth}
+                className="border-orange-300 text-orange-700 hover:bg-orange-50"
+              >
+                <Lock className="mr-2 h-4 w-4" /> {t("Close Month")}
+              </Button>
+            </div>
           </div>
         }
       />
@@ -190,7 +246,7 @@ export function MonthlySalaryClient() {
       <SearchFilterBar 
         value={query} 
         onChange={setQuery} 
-        placeholder="Search employee name..." 
+        placeholder={t("Search employee name...")}
         rightSlot={
           <div className="flex gap-3">
             <div className="w-36">
@@ -199,7 +255,7 @@ export function MonthlySalaryClient() {
                 onChange={(e) => setSelectedMonth(Number(e.target.value))}
               >
                 {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(m => (
-                  <option key={m} value={m}>{monthMap[m]}</option>
+                  <option key={m} value={m}>{t(monthMap[m])}</option>
                 ))}
               </Select>
             </div>
@@ -226,18 +282,18 @@ export function MonthlySalaryClient() {
           return "";
         }}
         columns={[
-          { key: "employee", title: "Employee", render: (row) => row.employee?.name || "-" },
-          { key: "period", title: "Period", render: (row) => `${monthMap[row.month]} ${row.year}` },
-          { key: "totalSalary", title: "Total Salary", render: (row) => formatCurrency(row.totalSalary) },
-          { key: "workingDays", title: "Working Day", render: (row) => row.workingDays ?? 30 },
-          { key: "workingDaySalary", title: "Working Day Salary", render: (row) => formatCurrency(row.workingDaySalary) },
-          { key: "advanceSalaryAmount", title: "Salary Advance", render: (row) => formatCurrency(row.advanceSalaryAmount) },
-          { key: "loanAdjustAmount", title: "Loan Adjust", render: (row) => formatCurrency(row.loanAdjustAmount) },
-          { key: "festivalBonus", title: "Festival Bonus", render: (row) => formatCurrency(row.festivalBonus || 0) },
-          { key: "payableSalary", title: "Payable Salary", render: (row) => <span className={`font-semibold ${row.payableSalary < 0 ? 'text-red-600' : 'text-brand-700'}`}>{formatCurrency(row.payableSalary)}</span> },
+          { key: "employee", title: t("Employee"), render: (row) => row.employee?.name || "-" },
+          { key: "period", title: t("Period"), render: (row) => `${t(monthMap[row.month])} ${row.year}` },
+          { key: "totalSalary", title: t("Total Salary"), render: (row) => fmt(row.totalSalary) },
+          { key: "workingDays", title: t("Working Day"), render: (row) => row.workingDays ?? 30 },
+          { key: "workingDaySalary", title: t("Working Day Salary"), render: (row) => fmt(row.workingDaySalary) },
+          { key: "advanceSalaryAmount", title: t("Salary Advance"), render: (row) => fmt(row.advanceSalaryAmount) },
+          { key: "loanAdjustAmount", title: t("Loan Adjust"), render: (row) => fmt(row.loanAdjustAmount) },
+          { key: "festivalBonus", title: t("Festival Bonus"), render: (row) => fmt(row.festivalBonus || 0) },
+          { key: "payableSalary", title: t("Payable Salary"), render: (row) => <span className={`font-semibold ${row.payableSalary < 0 ? 'text-red-600' : 'text-brand-700'}`}>{fmt(row.payableSalary)}</span> },
           {
             key: "isPaid",
-            title: "Track Box",
+            title: t("Track Box"),
             render: (row) => (
               <div className="flex items-center gap-4">
                 <label className="flex items-center gap-1.5 cursor-pointer text-xs font-medium text-slate-600">
@@ -247,7 +303,7 @@ export function MonthlySalaryClient() {
                     onChange={(e) => toggleStatus(row, "isPaid", e.target.checked)}
                     className="h-4 w-4 rounded border-slate-300 accent-slate-900"
                   />
-                  Paid
+                  {t("Paid")}
                 </label>
                 <label className="flex items-center gap-1.5 cursor-pointer text-xs font-medium text-orange-600">
                   <input
@@ -256,14 +312,14 @@ export function MonthlySalaryClient() {
                     onChange={(e) => toggleStatus(row, "isHeld", e.target.checked)}
                     className="h-4 w-4 rounded border-orange-300 accent-orange-600"
                   />
-                  Hold
+                  {t("Hold")}
                 </label>
               </div>
             )
           },
           {
             key: "actions",
-            title: "Actions",
+            title: t("Actions"),
             render: (row) => (
               <div className="flex gap-2">
                 <Button variant="secondary" className="h-9 px-3" onClick={() => { setMode("edit"); setSelected(row); setOpen(true); }}>
@@ -280,7 +336,7 @@ export function MonthlySalaryClient() {
 
       <Modal
         open={open}
-        title={mode === "create" ? "Add Monthly Salary" : "Edit Monthly Salary"}
+        title={mode === "create" ? t("Add Monthly Salary") : t("Edit Monthly Salary")}
         onClose={() => setOpen(false)}
       >
         <MonthlySalaryForm employees={employees.data} initialData={selected} onSubmit={submit} onCancel={() => setOpen(false)} />

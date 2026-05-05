@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useDialog } from "@/components/ui/dialog-provider";
 import { CheckCircle, XCircle, Clock, Search, Filter } from "lucide-react";
 import { ServiceGuard } from "@/components/shared/service-guard";
+import { useTranslation } from "@/hooks/use-translation";
 
 export default function AttendanceRequestsPage() {
   const [requests, setRequests] = useState<any[]>([]);
@@ -21,7 +22,9 @@ export default function AttendanceRequestsPage() {
   const [selectedRequest, setSelectedRequest] = useState<any>(null);
   const [hrNote, setHrNote] = useState("");
   const [processing, setProcessing] = useState(false);
+  const [viewDetails, setViewDetails] = useState<any>(null);
   const dialog = useDialog();
+  const { t } = useTranslation();
 
   const fetchRequests = useCallback(async () => {
     try {
@@ -42,8 +45,8 @@ export default function AttendanceRequestsPage() {
 
   const handleApprove = async (request: any) => {
     const confirmed = await dialog.confirm(
-      "Approve Request?",
-      `Are you sure you want to approve the attendance request for ${request.employee.name} on ${format(new Date(request.date), "dd MMM, yyyy")}?`
+      t("Approve Request?"),
+      t("Are you sure you want to approve the attendance request for {name} on {date}?", { name: request.employee.name, date: format(new Date(request.date), "dd MMM, yyyy") })
     );
     if (!confirmed) return;
 
@@ -59,11 +62,11 @@ export default function AttendanceRequestsPage() {
         fetchRequests();
       } else {
         const err = await res.json();
-        dialog.alert("Error", err.message || "Failed to approve request");
+        dialog.alert(t("Error"), err.message || t("Failed to approve request"));
       }
     } catch (error) {
       console.error(error);
-      dialog.alert("Error", "An unexpected error occurred");
+      dialog.alert(t("Error"), t("An unexpected error occurred"));
     } finally {
       setProcessing(false);
     }
@@ -77,7 +80,7 @@ export default function AttendanceRequestsPage() {
 
   const handleReject = async () => {
     if (!hrNote.trim()) {
-      dialog.alert("Error", "Please provide a reason for rejection.");
+      dialog.alert(t("Error"), t("Please provide a reason for rejection."));
       return;
     }
 
@@ -94,11 +97,11 @@ export default function AttendanceRequestsPage() {
         fetchRequests();
       } else {
         const err = await res.json();
-        dialog.alert("Error", err.message || "Failed to reject request");
+        dialog.alert(t("Error"), err.message || t("Failed to reject request"));
       }
     } catch (error) {
       console.error(error);
-      dialog.alert("Error", "An unexpected error occurred");
+      dialog.alert(t("Error"), t("An unexpected error occurred"));
     } finally {
       setProcessing(false);
     }
@@ -114,8 +117,8 @@ export default function AttendanceRequestsPage() {
     <ServiceGuard id="attendance">
     <div className="space-y-6">
       <PageHeader
-        title="Manual Attendance Requests"
-        subtitle="Review and process manual attendance submissions from employees"
+        title={t("Manual Attendance Requests")}
+        subtitle={t("Review and process manual attendance submissions from employees")}
       />
 
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -130,7 +133,7 @@ export default function AttendanceRequestsPage() {
                   : "text-slate-500 hover:bg-slate-50"
               }`}
             >
-              {status}
+              {t(status)}
             </button>
           ))}
         </div>
@@ -143,7 +146,7 @@ export default function AttendanceRequestsPage() {
           columns={[
             {
               key: "employee",
-              title: "Employee",
+              title: t("Employee"),
               render: (row) => (
                 <div className="flex items-center gap-3">
                   <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-xs">
@@ -158,7 +161,7 @@ export default function AttendanceRequestsPage() {
             },
             {
               key: "date",
-              title: "Requested Date",
+              title: t("Requested Date"),
               render: (row) => (
                 <div className="font-medium text-slate-700">
                   {format(new Date(row.date), "dd MMM, yyyy")}
@@ -167,7 +170,7 @@ export default function AttendanceRequestsPage() {
             },
             {
               key: "times",
-              title: "Requested Times",
+              title: t("Requested Times"),
               render: (row) => (
                 <div className="flex items-center gap-2 text-xs">
                   <span className="font-bold text-slate-900 bg-slate-50 px-2 py-1 rounded-lg border border-slate-100">
@@ -182,25 +185,34 @@ export default function AttendanceRequestsPage() {
             },
             {
               key: "reason",
-              title: "Reason",
+              title: t("Reason & Proof"),
               render: (row) => (
-                <div className="max-w-xs text-sm text-slate-500 italic line-clamp-2" title={row.reason}>
-                  "{row.reason}"
+                <div className="flex flex-col items-start gap-2 max-w-xs">
+                  <div className="text-sm text-slate-500 italic truncate w-full" title={row.reason}>
+                    "{row.reason}"
+                  </div>
+                  <button
+                    onClick={() => setViewDetails(row)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors text-xs font-bold border border-indigo-100"
+                  >
+                    <Search size={12} />
+                    {row.attachment ? t("View Details & Proof") : t("View Details")}
+                  </button>
                 </div>
               ),
             },
             {
               key: "status",
-              title: "Status",
+              title: t("Status"),
               render: (row) => (
                 <span className={`inline-flex px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${statusColors[row.status]}`}>
-                  {row.status}
+                  {t(row.status)}
                 </span>
               ),
             },
             {
               key: "actions",
-              title: "Actions",
+              title: t("Actions"),
               render: (row) => (
                 <div className="flex items-center gap-2">
                   {row.status === "PENDING" ? (
@@ -210,19 +222,19 @@ export default function AttendanceRequestsPage() {
                         disabled={processing}
                         className="h-9 px-4 rounded-xl bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white transition-all font-bold text-xs flex items-center gap-2 border border-emerald-100"
                       >
-                        <CheckCircle size={14} /> Approve
+                        <CheckCircle size={14} /> {t("Approve")}
                       </button>
                       <button
                         onClick={() => openRejectModal(row)}
                         disabled={processing}
                         className="h-9 px-4 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white transition-all font-bold text-xs flex items-center gap-2 border border-rose-100"
                       >
-                        <XCircle size={14} /> Reject
+                        <XCircle size={14} /> {t("Reject")}
                       </button>
                     </>
                   ) : (
                     <span className="text-[10px] font-bold text-slate-400 uppercase italic">
-                      Processed on {format(new Date(row.updatedAt), "dd MMM")}
+                      {t("Processed on")} {format(new Date(row.updatedAt), "dd MMM")}
                     </span>
                   )}
                 </div>
@@ -233,31 +245,71 @@ export default function AttendanceRequestsPage() {
       </Card>
 
       <Modal
+        open={!!viewDetails}
+        onClose={() => setViewDetails(null)}
+        title={t("Request Details")}
+        size="4xl"
+      >
+        <div className="pt-4 space-y-6">
+          <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200">
+            <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+               <Clock size={14} /> {t("Employee's Reason")}
+            </h3>
+            <p className="text-sm text-slate-700 font-medium whitespace-pre-wrap">{viewDetails?.reason}</p>
+          </div>
+          
+          {viewDetails?.attachment && (
+            <div>
+              <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                 <Search size={14} /> {t("Screenshot Proof")}
+              </h3>
+              <div className="max-h-[60vh] overflow-auto flex justify-center bg-slate-50 rounded-2xl border border-slate-200 p-2 shadow-sm">
+                <img src={viewDetails.attachment} alt="Attendance Proof" className="w-full h-auto rounded-xl" />
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="flex justify-end pt-6">
+          <Button onClick={() => setViewDetails(null)} variant="outline" className="rounded-xl font-bold px-6 border-slate-200">
+            {t("Close Details")}
+          </Button>
+        </div>
+      </Modal>
+
+      <Modal
         open={isRejectModalOpen}
-        title="Reject Attendance Request"
+        title={t("Reject Attendance Request")}
         onClose={() => setIsRejectModalOpen(false)}
       >
-        <div className="space-y-4">
+        <div className="space-y-4 pt-4">
           <div className="p-4 bg-rose-50 rounded-2xl border border-rose-100">
             <p className="text-sm font-medium text-rose-900">
-              You are rejecting the request for <strong>{selectedRequest?.employee?.name}</strong> on {selectedRequest && format(new Date(selectedRequest.date), "dd MMM, yyyy")}.
+              {t("You are rejecting the request for {name} on {date}.", { name: selectedRequest?.employee?.name, date: selectedRequest && format(new Date(selectedRequest.date), "dd MMM, yyyy") })}
             </p>
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-bold text-slate-700">Rejection Reason (HR Note)</label>
+            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{t("Rejection Reason (HR Note)")}</label>
             <Textarea
-              placeholder="Provide a reason for rejection..."
+              placeholder={t("Provide a reason for rejection...")}
               value={hrNote}
               onChange={(e) => setHrNote(e.target.value)}
-              required
+              className="min-h-[100px] rounded-xl bg-slate-50"
             />
           </div>
-          <div className="mt-6 flex justify-end gap-3 pt-4 border-t border-slate-50">
-            <Button variant="ghost" onClick={() => setIsRejectModalOpen(false)} disabled={processing}>
-              Cancel
+          <div className="flex gap-3 pt-2">
+            <Button
+              onClick={handleReject}
+              disabled={processing}
+              className="flex-1 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold"
+            >
+              {processing ? t("Rejecting...") : t("Confirm Rejection")}
             </Button>
-            <Button variant="ghost" className="bg-rose-600 text-white hover:bg-rose-700" onClick={handleReject} disabled={processing}>
-              {processing ? "Processing..." : "Confirm Rejection"}
+            <Button
+              variant="outline"
+              onClick={() => setIsRejectModalOpen(false)}
+              className="px-6 rounded-xl font-bold text-slate-500"
+            >
+              {t("Cancel")}
             </Button>
           </div>
         </div>

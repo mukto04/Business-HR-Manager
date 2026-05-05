@@ -1,18 +1,49 @@
 import { differenceInMonths, format, isSameMonth } from "date-fns";
 
-export function calculateSalaryBreakdown(totalSalary: number) {
-  const basicSalary = round(totalSalary * 0.5);
-  const hra = round(totalSalary * 0.25);
-  const medicalAllowance = round(totalSalary * 0.125);
-  const travelAllowance = round(totalSalary * 0.05);
+export function calculateSalaryBreakdown(totalSalary: number, structure?: any[]) {
+  const defaultStructure = [
+    { id: "basic", label: "Basic Salary", percent: 50 },
+    { id: "hra", label: "H.R.A", percent: 25 },
+    { id: "medical", label: "M.A", percent: 12.5 },
+    { id: "travel", label: "T.A", percent: 5 },
+    { id: "others", label: "Others", percent: 7.5 }
+  ];
 
+  // If structure is the old object format, convert to array
+  let fields: any[] = [];
+  if (Array.isArray(structure)) {
+    fields = structure;
+  } else if (structure && typeof structure === 'object') {
+    fields = Object.entries(structure).map(([key, val]: [string, any]) => ({
+      id: key,
+      label: typeof val === 'object' ? (val.label || key) : key,
+      percent: typeof val === 'object' ? (val.percent || 0) : (val || 0)
+    }));
+  } else {
+    fields = defaultStructure;
+  }
+
+  const result: any = { festivalBonus: 0, labels: {}, values: {} };
+  
+  // Calculate each field
+  fields.forEach(field => {
+    const amount = round(totalSalary * (field.percent / 100));
+    result.values[field.id] = amount;
+    result.labels[field.id] = field.label;
+  });
+
+  // Legacy field mapping for DB compatibility
   return {
-    basicSalary,
-    hra,
-    medicalAllowance,
-    travelAllowance,
-    others: round(totalSalary - basicSalary - hra - medicalAllowance - travelAllowance),
-    festivalBonus: 0
+    basicSalary: result.values.basic || 0,
+    hra: result.values.hra || 0,
+    medicalAllowance: result.values.medical || 0,
+    travelAllowance: result.values.travel || 0,
+    others: result.values.others || 0,
+    festivalBonus: 0,
+    // Add dynamic breakdown for storage
+    breakdown: fields.map(f => ({ ...f, amount: result.values[f.id] })),
+    labels: result.labels,
+    values: result.values // Keep flat values for UI/logic if needed
   };
 }
 
@@ -61,12 +92,12 @@ export function getAnniversaryWish(name: string, joiningDate: string | Date) {
   return "-";
 }
 
-export function formatCurrency(amount: number) {
-  return new Intl.NumberFormat("en-BD", {
-    style: "currency",
-    currency: "BDT",
-    maximumFractionDigits: 0
+export function formatCurrency(amount: number, currencySymbol: string = "৳") {
+  const formatted = new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: 0,
+    minimumFractionDigits: 0,
   }).format(amount ?? 0);
+  return `${currencySymbol}${formatted}`;
 }
 
 export function round(value: number) {

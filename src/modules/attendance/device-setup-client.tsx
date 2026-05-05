@@ -16,7 +16,10 @@ import {
   Copy,
   Check,
   Eye,
-  EyeOff
+  EyeOff,
+  HelpCircle,
+  AlertCircle,
+  Key
 } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
@@ -28,6 +31,7 @@ import { useDialog } from "@/components/ui/dialog-provider";
 import { LoadingState } from "@/modules/shared/loading-state";
 import { ErrorState } from "@/modules/shared/error-state";
 import { format } from "date-fns";
+import { useTranslation } from "@/hooks/use-translation";
 
 interface AttendanceDevice {
   id: string;
@@ -79,6 +83,7 @@ export function DeviceSetupClient() {
   const [showApiKeyId, setShowApiKeyId] = useState<string | null>(null);
   const [setupOS, setSetupOS] = useState<"windows" | "linux">("windows");
   const dialog = useDialog();
+  const { t } = useTranslation();
 
   const [formData, setFormData] = useState({
     deviceName: "",
@@ -95,9 +100,9 @@ export function DeviceSetupClient() {
       setOpen(false);
       setFormData({ deviceName: "", ipAddress: "", port: "4370", description: "" });
       await devices.refresh();
-      dialog.alert("Success", "Device added successfully. Please copy the API Key for the sync agent.");
+      dialog.alert(t("Success"), t("Device added successfully. Please copy the API Key for the sync agent."));
     } catch (error: any) {
-      dialog.alert("Error", error.message || "Failed to add device.");
+      dialog.alert(t("Error"), error.message || t("Failed to add device."));
     } finally {
       setLoading(false);
     }
@@ -111,7 +116,7 @@ export function DeviceSetupClient() {
       await fetch(`/api/attendance/devices?id=${id}`, { method: "DELETE" });
       await devices.refresh();
     } catch (error: any) {
-      dialog.alert("Error", "Failed to delete device.");
+      dialog.alert(t("Error"), t("Failed to delete device."));
     }
   }
 
@@ -133,6 +138,7 @@ export function DeviceSetupClient() {
 const HEARTBEAT_URL = "${window.location.origin}/api/attendance/heartbeat";
 const SYNC_URL = "${window.location.origin}/api/attendance/sync-push";
 const API_KEY = "${device.apiKey}";
+const TENANT_SLUG = "${window.location.pathname.split('/')[1] || 'default'}"; // Auto-detected slug
 const DEVICE_IP = "${device.ipAddress}";
 const DEVICE_PORT = ${device.port};
 const SYNC_INTERVAL_MINUTES = 5;
@@ -146,7 +152,10 @@ const axios = require('axios');
 async function sendHeartbeat(machineStatus = "DISCONNECTED", error = null) {
     try {
         await axios.post(HEARTBEAT_URL, { machineStatus, error }, {
-            headers: { 'x-api-key': API_KEY }
+            headers: { 
+                'x-api-key': API_KEY,
+                'x-tenant-slug': TENANT_SLUG
+            }
         });
         console.log(\`[\${new Date().toLocaleString()}] Heartbeat sent: Machine is \${machineStatus}\`);
     } catch (e) {
@@ -155,7 +164,7 @@ async function sendHeartbeat(machineStatus = "DISCONNECTED", error = null) {
 }
 
 async function sync() {
-    let zkInstance = new ZKLib(DEVICE_IP, DEVICE_PORT, 10000, 4000);
+    let zkInstance = new ZKLib(DEVICE_IP, DEVICE_PORT, 20000, 4000);
     try {
         console.log(\`[\${new Date().toLocaleString()}] Attempting connection to \${DEVICE_IP}...\`);
         await zkInstance.createSocket();
@@ -165,7 +174,10 @@ async function sync() {
         
         console.log(\`Syncing \${logs.data.length} logs to SaaS...\`);
         const response = await axios.post(SYNC_URL, { logs: logs.data }, {
-            headers: { 'x-api-key': API_KEY }
+            headers: { 
+                'x-api-key': API_KEY,
+                'x-tenant-slug': TENANT_SLUG
+            }
         });
 
         console.log('Success:', response.data.message);
@@ -215,11 +227,11 @@ setInterval(sync, SYNC_INTERVAL_MINUTES * 60 * 1000);
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Attendance Device Setup"
-        subtitle="Manage your physical biometric machines and connect them to the SaaS portal."
+        title={t("Attendance Device Setup")}
+        subtitle={t("Manage your physical biometric machines and connect them to the SaaS portal.")}
         actions={
           <Button onClick={() => setOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" /> Add New Device
+            <Plus className="mr-2 h-4 w-4" /> {t("Add New Device")}
           </Button>
         }
       />
@@ -231,7 +243,7 @@ setInterval(sync, SYNC_INTERVAL_MINUTES * 60 * 1000);
               <div className="bg-slate-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
                  <Wifi className="w-8 h-8 text-slate-400" />
               </div>
-              <h3 className="text-lg font-bold text-slate-900">No Devices Configured</h3>
+              <h3 className="text-lg font-bold text-slate-900">{t("No Devices Configured")}</h3>
               <p className="text-slate-500 max-w-sm mx-auto mt-2">
                 Biometric devices must be added here before you can sync attendance data from your office.
               </p>
@@ -254,11 +266,11 @@ setInterval(sync, SYNC_INTERVAL_MINUTES * 60 * 1000);
                         <div className="flex items-center gap-3 mt-1">
                            <span className="text-xs font-mono bg-slate-100 px-2 py-0.5 rounded text-slate-600">{device.ipAddress}:{device.port}</span>
                            <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${statusInfo.color}`}>
-                             {statusInfo.label}
+                             {t(statusInfo.label)}
                            </span>
                            {statusInfo.agentStatus === 'CONNECTED' && statusInfo.label === 'Agent Only' && (
                              <span className="text-[9px] text-blue-500 font-medium italic ml-2">
-                               (Agent Online, Machine Offline)
+                               ({t("Agent Online, Machine Offline")})
                              </span>
                            )}
                         </div>
@@ -267,7 +279,7 @@ setInterval(sync, SYNC_INTERVAL_MINUTES * 60 * 1000);
 
                   <div className="flex items-center gap-2">
                     <Button variant="secondary" onClick={() => downloadAgent(device)}>
-                       <Download className="mr-2 h-3.5 w-3.5" /> Download Agent
+                       <Download className="mr-2 h-3.5 w-3.5" /> {t("Download Agent")}
                     </Button>
                     <Button variant="danger" onClick={() => deleteDevice(device.id)}>
                        <Trash2 className="h-4 w-4" />
@@ -277,7 +289,7 @@ setInterval(sync, SYNC_INTERVAL_MINUTES * 60 * 1000);
 
                 <div className="mt-6 pt-6 border-t border-slate-50 grid grid-cols-1 md:grid-cols-2 gap-6">
                    <div className="space-y-2">
-                      <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Device API Key (Private)</label>
+                      <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">{t("Device API Key (Private)")}</label>
                       <div className="flex gap-2">
                          <div className="relative flex-1">
                             <Input 
@@ -306,9 +318,9 @@ setInterval(sync, SYNC_INTERVAL_MINUTES * 60 * 1000);
                    </div>
                    <div className="flex items-end justify-end text-right">
                       <div className="space-y-1">
-                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Last Activity</div>
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{t("Last Activity")}</div>
                         <div className="text-sm font-semibold text-slate-700">
-                          {device.lastSync ? format(new Date(device.lastSync), "MMM d, yyyy HH:mm") : "Never synced"}
+                          {device.lastSync ? format(new Date(device.lastSync), "MMM d, yyyy HH:mm") : t("Never synced")}
                         </div>
                       </div>
                    </div>
@@ -325,15 +337,26 @@ setInterval(sync, SYNC_INTERVAL_MINUTES * 60 * 1000);
                 <div className="bg-blue-100 p-2 rounded-xl">
                   <Terminal className="w-5 h-5 text-blue-600" />
                 </div>
-                <h4 className="font-bold text-slate-900">Setup Guide</h4>
+                <h4 className="font-bold text-slate-900">{t("Setup Guide")}</h4>
              </div>
              
              <div className="space-y-8 relative before:absolute before:left-4 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-100">
                 {/* Step 1 */}
                 <div className="relative pl-10">
                    <div className="absolute left-0 top-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold text-sm shadow-lg shadow-blue-200 z-10">1</div>
-                   <h5 className="font-bold text-slate-800 text-sm mb-1">Install Node.js</h5>
-                   <p className="text-xs text-slate-500 mb-3">Download and install Node.js on the office PC that is on the same network as the device.</p>
+                   <h5 className="font-bold text-slate-800 text-sm mb-1">{t("New Device Configuration")}</h5>
+                   <p className="text-[11px] text-slate-500 mb-3">
+                      {t("First, connect the machine to WiFi. Go to WiFi 'Details' to get the ")} <strong>{t("IP Address")}</strong>. 
+                      {t(" Then go to 'Ethernet Details' to get the ")} <strong>{t("Port")}</strong> (4370). 
+                      <span className="text-amber-600 font-semibold block mt-1">{t("Note: Only use the WiFi IP, not the Ethernet IP.")}</span>
+                   </p>
+                </div>
+
+                {/* Step 2 */}
+                <div className="relative pl-10">
+                   <div className="absolute left-0 top-0 w-8 h-8 bg-white border-2 border-slate-200 text-slate-400 rounded-full flex items-center justify-center font-bold text-sm z-10">2</div>
+                   <h5 className="font-bold text-slate-800 text-sm mb-1">{t("Install Node.js")}</h5>
+                   <p className="text-[11px] text-slate-500 mb-3">{t("Install Node.js on the PC connected to the same router.")}</p>
                    <a 
                       href="https://nodejs.org/en/download/prebuilt-installer" 
                       target="_blank" 
@@ -343,20 +366,34 @@ setInterval(sync, SYNC_INTERVAL_MINUTES * 60 * 1000);
                    </a>
                 </div>
 
-                {/* Step 2 */}
-                <div className="relative pl-10">
-                   <div className="absolute left-0 top-0 w-8 h-8 bg-white border-2 border-slate-200 text-slate-400 rounded-full flex items-center justify-center font-bold text-sm z-10">2</div>
-                   <h5 className="font-bold text-slate-800 text-sm mb-1">Download Sync Agent</h5>
-                   <p className="text-xs text-slate-500">
-                      Register your device on the left, then click the <strong>"Download Agent"</strong> button to save the script on that PC.
-                   </p>
-                </div>
-
                 {/* Step 3 */}
                 <div className="relative pl-10">
                    <div className="absolute left-0 top-0 w-8 h-8 bg-white border-2 border-slate-200 text-slate-400 rounded-full flex items-center justify-center font-bold text-sm z-10">3</div>
+                   <h5 className="font-bold text-slate-800 text-sm mb-1">{t("Install Dependencies")}</h5>
+                   <p className="text-[11px] text-slate-500 mb-2">{t("Open CMD/Terminal in that folder and run:")}</p>
+                   <div className="bg-slate-900 rounded-xl p-3 font-mono text-[10px] text-emerald-400">
+                      <span className="text-slate-500">$</span> npm install node-zklib axios
+                   </div>
+                </div>
+
+                {/* Step 4 */}
+                <div className="relative pl-10">
+                   <div className="absolute left-0 top-0 w-8 h-8 bg-white border-2 border-slate-200 text-slate-400 rounded-full flex items-center justify-center font-bold text-sm z-10">4</div>
+                   <h5 className="font-bold text-slate-800 text-sm mb-1">{t("Test Connection")}</h5>
+                   <p className="text-[11px] text-slate-500 mb-2">{t("Run the agent manually to check if it connects to the machine:")}</p>
+                   <div className="bg-slate-900 rounded-xl p-3 font-mono text-[10px] text-blue-400 mb-2">
+                      <span className="text-slate-500">$</span> node <span className="text-red-500 font-bold bg-red-500/10 px-1 rounded">your-agent-filename.js</span>
+                   </div>
+                   <p className="text-[10px] text-amber-600 font-medium italic">
+                      {t("* Replace 'your-agent-filename.js' with the actual name of the file you downloaded.")}
+                   </p>
+                </div>
+
+                {/* Step 5 */}
+                <div className="relative pl-10">
+                   <div className="absolute left-0 top-0 w-8 h-8 bg-white border-2 border-slate-200 text-slate-400 rounded-full flex items-center justify-center font-bold text-sm z-10">5</div>
                    <div className="flex items-center justify-between gap-4 mb-2">
-                      <h5 className="font-bold text-slate-800 text-sm">Run Automatically (Auto-Setup)</h5>
+                      <h5 className="font-bold text-slate-800 text-sm">{t("Auto-Run (Background)")}</h5>
                       <div className="flex bg-slate-100 p-1 rounded-lg shrink-0">
                          <button 
                             className={`px-2 py-1 text-[9px] font-black uppercase rounded-md transition-all ${setupOS === 'windows' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500'}`}
@@ -373,10 +410,10 @@ setInterval(sync, SYNC_INTERVAL_MINUTES * 60 * 1000);
                       </div>
                    </div>
                    
-                   <p className="text-xs text-slate-500 mb-2 leading-relaxed">
+                   <p className="text-[11px] text-slate-500 mb-2 leading-relaxed">
                       {setupOS === 'windows' 
-                        ? "To set it as a Windows Service (runs automatically on startup), open CMD as Admin and run:"
-                        : "To keep it running in the background on Linux (Ubuntu/Debian/CentOS), use PM2:"}
+                        ? "To run automatically on startup, open CMD as Admin and run:"
+                        : "To keep it running in the background on Linux, use PM2:"}
                    </p>
                    
                    {setupOS === 'windows' ? (
@@ -389,20 +426,66 @@ setInterval(sync, SYNC_INTERVAL_MINUTES * 60 * 1000);
                      <div className="bg-slate-900 rounded-xl p-3 font-mono text-[10px] text-indigo-400">
                         <span className="text-slate-500">$</span> npm install -g pm2
                         <br/>
-                        <span className="text-slate-500">$</span> pm2 start agent-name.js
+                        <span className="text-slate-500">$</span> pm2 start sync-agent-name.js
                         <br/>
-                        <span className="text-slate-500">$</span> pm2 save && pm2 startup
+                        <span className="text-slate-500">$</span> pm2 save
                      </div>
                    )}
                 </div>
+             </div>
 
-                {/* Step 4 */}
-                <div className="relative pl-10">
-                   <div className="absolute left-0 top-0 w-8 h-8 bg-white border-2 border-slate-200 text-slate-400 rounded-full flex items-center justify-center font-bold text-sm z-10">4</div>
-                   <h5 className="font-bold text-slate-800 text-sm mb-1">Check Connection Status</h5>
-                   <p className="text-xs text-slate-500">
-                      Once the agent starts, the device status here will automatically switch to <span className="text-green-600 font-bold">Online</span>.
-                   </p>
+             {/* Troubleshooting & Help - Modernized */}
+             <div className="mt-12 p-6 bg-slate-50 rounded-2xl border border-slate-100">
+                <div className="flex items-center gap-3 mb-6">
+                   <div className="w-8 h-8 bg-amber-100 text-amber-600 rounded-lg flex items-center justify-center">
+                      <HelpCircle className="w-5 h-5" />
+                   </div>
+                   <div>
+                      <h5 className="font-bold text-slate-900 text-sm">{t("Troubleshooting & Help")}</h5>
+                      <p className="text-[10px] text-slate-500">{t("Solve common connection and sync issues")}</p>
+                   </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                   <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+                      <div className="flex items-center gap-2 mb-2 text-amber-600">
+                         <WifiOff className="w-3.5 h-3.5" />
+                         <span className="text-[11px] font-bold">{t("Connection Failed")}</span>
+                      </div>
+                      <p className="text-[10px] text-slate-500 leading-relaxed">
+                         {t("Ensure PC and Machine are on the SAME router. Try to 'ping' the machine IP from your terminal to verify visibility.")}
+                      </p>
+                   </div>
+
+                   <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+                      <div className="flex items-center gap-2 mb-2 text-rose-600">
+                         <AlertCircle className="w-3.5 h-3.5" />
+                         <span className="text-[11px] font-bold">{t("Subnet Mismatch")}</span>
+                      </div>
+                      <p className="text-[10px] text-slate-500 leading-relaxed">
+                         {t("PC IP series must match Machine (e.g. 192.168.1.x). If they differ, use DHCP on the machine to auto-resolve.")}
+                      </p>
+                   </div>
+
+                   <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+                      <div className="flex items-center gap-2 mb-2 text-blue-600">
+                         <Key className="w-3.5 h-3.5" />
+                         <span className="text-[11px] font-bold">{t("Invalid API Key (401)")}</span>
+                      </div>
+                      <p className="text-[10px] text-slate-500 leading-relaxed">
+                         {t("This means your agent file is outdated. Please delete old files and download the LATEST agent from this page.")}
+                      </p>
+                   </div>
+
+                   <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+                      <div className="flex items-center gap-2 mb-2 text-emerald-600">
+                         <ShieldCheck className="w-3.5 h-3.5" />
+                         <span className="text-[11px] font-bold">{t("Comm Key / Password")}</span>
+                      </div>
+                      <p className="text-[10px] text-slate-500 leading-relaxed">
+                         {t("Ensure 'Comm Key' is set to '0' in machine network settings. Otherwise, the agent will be blocked from connecting.")}
+                      </p>
+                   </div>
                 </div>
              </div>
 
@@ -412,7 +495,7 @@ setInterval(sync, SYNC_INTERVAL_MINUTES * 60 * 1000);
                       <ShieldCheck className="w-4 h-4 text-blue-600" />
                    </div>
                    <div className="space-y-1">
-                      <h6 className="text-[11px] font-bold text-blue-800 uppercase tracking-wider">Device API Key</h6>
+                      <h6 className="text-[11px] font-bold text-blue-800 uppercase tracking-wider">{t("Device API Key")}</h6>
                       <p className="text-[10px] text-blue-700 leading-relaxed">
                         This key acts as a secure identity token. It ensures that only data from your specific machine is accepted by the SaaS server. <strong>Never share this key with anyone.</strong>
                       </p>
@@ -428,14 +511,14 @@ setInterval(sync, SYNC_INTERVAL_MINUTES * 60 * 1000);
                   <div className="bg-blue-500/20 p-2 rounded-xl">
                     <Wifi className="w-5 h-5 text-blue-400" />
                   </div>
-                  <h4 className="font-bold">Sync Technology</h4>
+                  <h4 className="font-bold">{t("Sync Technology")}</h4>
                 </div>
                 <p className="text-[11px] text-slate-400 leading-relaxed mb-4">
                    Our "Push-Sync" model eliminates the need for Static IP or Port Forwarding. All communication is E2E encrypted via HTTPS.
                 </p>
                 <div className="flex items-center gap-2 text-blue-400 text-[10px] font-bold uppercase tracking-widest">
                    <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></div>
-                   Ready to connect
+                   {t("Ready to connect")}
                 </div>
              </div>
           </div>
@@ -456,7 +539,7 @@ setInterval(sync, SYNC_INTERVAL_MINUTES * 60 * 1000);
             
             <div className="grid grid-cols-2 gap-4">
                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">IP Address</label>
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">{t("IP Address")}</label>
                   <Input 
                      required 
                      placeholder="192.168.1.201" 
@@ -465,7 +548,7 @@ setInterval(sync, SYNC_INTERVAL_MINUTES * 60 * 1000);
                   />
                </div>
                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Port</label>
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">{t("Port")}</label>
                   <Input 
                      required 
                      type="number" 
@@ -477,7 +560,7 @@ setInterval(sync, SYNC_INTERVAL_MINUTES * 60 * 1000);
             </div>
 
             <div className="space-y-2">
-               <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Description</label>
+               <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">{t("Description")}</label>
                <Input 
                   placeholder="ZKTeco F22 on front desk" 
                   value={formData.description}
@@ -486,9 +569,9 @@ setInterval(sync, SYNC_INTERVAL_MINUTES * 60 * 1000);
             </div>
 
             <div className="pt-4 flex justify-end gap-3">
-               <Button type="button" variant="secondary" onClick={() => setOpen(false)}>Cancel</Button>
+               <Button type="button" variant="secondary" onClick={() => setOpen(false)}>{t("Cancel")}</Button>
                <Button type="submit" disabled={loading}>
-                 {loading ? "Adding..." : "Register Device"}
+                 {loading ? t("Adding...") : t("Register Device")}
                </Button>
             </div>
          </form>

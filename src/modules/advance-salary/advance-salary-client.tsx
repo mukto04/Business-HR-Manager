@@ -14,9 +14,10 @@ import { sendJson } from "@/lib/http";
 import { LoadingState } from "@/modules/shared/loading-state";
 import { ErrorState } from "@/modules/shared/error-state";
 import { AdvanceSalaryForm } from "./advance-salary-form";
-import { formatCurrency } from "@/utils/calculations";
+import { useCurrencyFormatter } from "@/hooks/use-currency-formatter";
 import { Select } from "@/components/ui/select";
 import { useDialog } from "@/components/ui/dialog-provider";
+import { useTranslation } from "@/hooks/use-translation";
 
 const monthMap: Record<number, string> = {
   1: "Jan", 2: "Feb", 3: "Mar", 4: "Apr", 5: "May", 6: "Jun",
@@ -33,6 +34,8 @@ export function AdvanceSalaryClient() {
   const [mode, setMode] = useState<ModalMode>("create");
   const [selected, setSelected] = useState<AdvanceSalary | undefined>();
   const dialog = useDialog();
+  const fmt = useCurrencyFormatter();
+  const { t } = useTranslation();
 
   const years = useMemo(() => {
     const current = new Date().getFullYear();
@@ -63,8 +66,8 @@ export function AdvanceSalaryClient() {
 
   async function remove(item: AdvanceSalary) {
     const ok = await dialog.danger(
-      "Delete this advance salary record?",
-      <p className="text-sm text-slate-600">This will permanently remove the advance salary of <strong>{item.employee?.name}</strong>.</p>
+      t("Delete this advance salary record?"),
+      <p className="text-sm text-slate-600">{t("This will permanently remove the advance salary of {name}.", { name: item.employee?.name })}</p>
     );
     if (!ok) return;
     await sendJson(`/api/advance-salary/${item.id}`, "DELETE");
@@ -78,8 +81,8 @@ export function AdvanceSalaryClient() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Advance Salary"
-        subtitle="Manage advance salary allocations and deduction status."
+        title={t("Advance Salary")}
+        subtitle={t("Manage advance salary allocations and deduction status.")}
         actions={
           <Button
             onClick={() => {
@@ -88,7 +91,7 @@ export function AdvanceSalaryClient() {
               setOpen(true);
             }}
           >
-            <Plus className="mr-2 h-4 w-4" /> Add Advance
+            <Plus className="mr-2 h-4 w-4" /> {t("Add Advance")}
           </Button>
         }
       />
@@ -96,7 +99,7 @@ export function AdvanceSalaryClient() {
       <SearchFilterBar
         value={query}
         onChange={setQuery}
-        placeholder="Search by employee name..."
+        placeholder={t("Search by employee name...")}
         rightSlot={
           <div className="flex gap-3">
             <Select 
@@ -105,7 +108,7 @@ export function AdvanceSalaryClient() {
               className="w-[140px]"
             >
               {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(m => (
-                <option key={m} value={m}>{monthMap[m]}</option>
+                <option key={m} value={m}>{t(monthMap[m])}</option>
               ))}
             </Select>
             <Select 
@@ -126,27 +129,27 @@ export function AdvanceSalaryClient() {
         columns={[
           {
             key: "employee",
-            title: "Employee Name",
+            title: t("Employee Name"),
             render: (row) => row.employee?.name || "-",
           },
           {
             key: "amount",
-            title: "Amount",
-            render: (row) => formatCurrency(row.amount),
+            title: t("Amount"),
+            render: (row) => fmt(row.amount),
           },
           {
             key: "period",
-            title: "Month",
-            render: (row) => `${monthMap[row.month]} ${row.year}`,
+            title: t("Month"),
+            render: (row) => `${t(monthMap[row.month])} ${row.year}`,
           },
           {
             key: "note",
-            title: "Note",
+            title: t("Note"),
             render: (row) => row.note || "-",
           },
           {
             key: "actions",
-            title: "Action",
+            title: t("Action"),
             render: (row) => (
               <div className="flex gap-2">
                 <Button
@@ -175,11 +178,12 @@ export function AdvanceSalaryClient() {
 
       <Modal
         open={open}
-        title={mode === "create" ? "Add Advance Salary" : "Edit Advance Salary"}
+        title={mode === "create" ? t("Add Advance Salary") : t("Edit Advance Salary")}
         onClose={() => setOpen(false)}
       >
         <AdvanceSalaryForm
           employees={employees.data}
+          advances={records.data}
           initialData={selected}
           onSubmit={submit}
           onCancel={() => setOpen(false)}

@@ -25,9 +25,12 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ id:
     const { id } = await context.params;
     const parsed = salarySchema.parse(await request.json());
 
-    const salary = await (await getTenantPrisma()).salaryStructure.update({
+    const prisma = await getTenantPrisma();
+    const settings = await prisma.tenantSettings.findFirst();
+
+    const salary = await prisma.salaryStructure.update({
       where: { id },
-      data: toSalaryPayload(parsed),
+      data: toSalaryPayload(parsed, settings?.salaryStructure) as any,
       include: { employee: true }
     });
 

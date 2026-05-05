@@ -26,8 +26,13 @@ import {
   Coins,
   CreditCard,
   Receipt,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Zap,
+  Layout,
+  ExternalLink 
 } from "lucide-react";
+import { useToastStore } from "@/lib/store/use-toast-store";
+import { Save } from "lucide-react";
 
 interface Tenant {
   id: string;
@@ -56,6 +61,8 @@ export default function TenantManagementPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [dbTestStatus, setDbTestStatus] = useState<"idle" | "testing" | "success" | "error">("idle");
   const [dbTestMessage, setDbTestMessage] = useState("");
+  const [showPlanDropdown, setShowPlanDropdown] = useState(false);
+  const { showToast } = useToastStore();
 
   const [formData, setFormData] = useState({
     slug: "",
@@ -106,9 +113,14 @@ export default function TenantManagementPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: tenant.id, status: newStatus }),
       });
-      if (res.ok) fetchTenants();
+      if (res.ok) {
+        showToast(`${tenant.companyName} status updated to ${newStatus.toLowerCase()}`, "success");
+        fetchTenants();
+      } else {
+        showToast(`Failed to update status for ${tenant.companyName}`, "error");
+      }
     } catch (e) {
-      alert("Failed to update status");
+      showToast("Error connecting to server", "error");
     }
   }
 
@@ -124,10 +136,14 @@ export default function TenantManagementPage() {
       const res = await fetch(`/api/super-admin/companies?id=${tenant.id}`, {
         method: "DELETE"
       });
-      if (res.ok) fetchTenants();
-      else alert("Delete failed");
+      if (res.ok) {
+        showToast(`${tenant.companyName} permanently deleted`, "success");
+        fetchTenants();
+      } else {
+        showToast("Permanent delete failed", "error");
+      }
     } catch (e) {
-      alert("Error deleting tenant");
+      showToast("Error deleting tenant", "error");
     }
   }
 
@@ -149,13 +165,16 @@ export default function TenantManagementPage() {
       if (res.ok) {
         setDbTestStatus("success");
         setDbTestMessage(data.message || "Connection successful!");
+        showToast("Database connection successful!", "success");
       } else {
         setDbTestStatus("error");
         setDbTestMessage(data.message || "Connection failed.");
+        showToast(data.message || "Database connection failed", "error");
       }
     } catch (e) {
       setDbTestStatus("error");
       setDbTestMessage("Network error. Could not test connection.");
+      showToast("Network error during DB test", "error");
     }
   }
 
@@ -192,9 +211,10 @@ export default function TenantManagementPage() {
         subscriptionDays: "30",
         employeeLimit: 50
       });
+      showToast(editingTenant ? "Instance updated successfully!" : "New instance deployed successfully!", "success");
       fetchTenants();
     } catch (e: any) {
-      alert(e.message || "Operation failed");
+      showToast(e.message || "Operation failed. Something went wrong.", "error");
     } finally {
       setIsSubmitting(false);
     }
@@ -224,104 +244,108 @@ export default function TenantManagementPage() {
   );
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-200">
-      <main className="max-w-7xl mx-auto p-6 space-y-8">
-        {/* Header Stats / Actions */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <h2 className="text-2xl font-bold text-white">
-              {activeTab === "ACTIVE" ? "Active Subscriptions" : "Account History (Trash)"}
-            </h2>
-            <p className="text-slate-500 text-sm">
-              {activeTab === "ACTIVE" 
-                ? `Managing ${activeTenants.length} live instances` 
-                : `${deletedTenants.length} records available for recovery`}
-            </p>
+    <div className="p-4 sm:p-6 space-y-6 pb-20 w-full animate-fade-in">
+      {/* Header */}
+      <div className="relative group overflow-hidden bg-slate-900 shadow-xl p-6 rounded-3xl border border-slate-800 backdrop-blur-md">
+        <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+           <Building2 className="w-24 h-24 text-red-500 -rotate-12 translate-x-4 -translate-y-4" />
+        </div>
+        
+        <div className="relative flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+          <div className="flex items-center gap-4">
+            <div className="bg-red-600 p-2.5 rounded-2xl shadow-lg ring-4 ring-red-600/10 shrink-0">
+              <ShieldCheck className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-white tracking-tight">Tenant Management</h1>
+              <p className="text-xs text-slate-500 font-medium flex items-center gap-1.5">
+                 <Zap className="w-3 h-3 text-yellow-500" />
+                 Managing {activeTenants.length} live instances
+              </p>
+            </div>
           </div>
-          
-          <div className="flex items-center gap-3">
-            {/* Tabs */}
-            <div className="flex bg-slate-900 p-1 rounded-xl border border-slate-800 mr-4">
-               <button 
-                onClick={() => setActiveTab("ACTIVE")}
-                className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${activeTab === "ACTIVE" ? "bg-slate-800 text-white shadow-lg" : "text-slate-500 hover:text-slate-300"}`}
-               >
-                 <CheckCircle2 className="w-3.5 h-3.5" /> Active
-                 <span className="bg-slate-700 px-1.5 rounded text-[10px]">{activeTenants.length}</span>
-               </button>
-               <button 
-                onClick={() => setActiveTab("HISTORY")}
-                className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${activeTab === "HISTORY" ? "bg-slate-800 text-red-500 shadow-lg" : "text-slate-500 hover:text-slate-300"}`}
-               >
-                 <History className="w-3.5 h-3.5" /> History
-                 <span className="bg-slate-700 px-1.5 rounded text-[10px]">{deletedTenants.length}</span>
-               </button>
-            </div>
-
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
-              <input 
-                placeholder="Search index..." 
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-4 py-2 text-sm text-white focus:ring-2 focus:ring-red-600 focus:border-transparent outline-none transition-all w-48"
-              />
-            </div>
-            <button 
-              onClick={() => {
-                setEditingTenant(null);
-                setFormData({ 
-                  slug: "", 
-                  companyName: "", 
-                  dbUrl: "", 
-                  planName: "Starter",
-                  adminUsername: "admin", 
-                  adminPassword: "",
-                  subscriptionDays: "30",
-                  employeeLimit: 50
-                });
-                setShowModal(true);
-              }}
-              className="flex items-center gap-2 bg-white text-black font-semibold px-4 py-2 rounded-xl hover:bg-slate-200 transition-colors shadow-lg"
-            >
-              <Plus className="w-4 h-4" /> Add Company
-            </button>
+          <div className="flex items-center gap-3 w-full md:w-auto">
+             <div className="relative flex-1 md:flex-none">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                <input 
+                  type="text" 
+                  placeholder="Search identity..." 
+                  className="w-full md:w-64 bg-black/40 border border-slate-800 rounded-xl py-2.5 pl-10 pr-4 text-xs text-white focus:ring-1 focus:ring-red-600 outline-none transition-all"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+             </div>
+             <button 
+               onClick={() => {
+                 setEditingTenant(null);
+                 setFormData({ slug: "", companyName: "", dbUrl: "", planName: "Starter", adminUsername: "admin", adminPassword: "", subscriptionDays: "30", employeeLimit: 50 });
+                 setShowModal(true);
+               }}
+               className="bg-red-600 hover:bg-red-700 text-white p-2.5 rounded-xl shadow-lg shadow-red-600/20 transition-all flex items-center justify-center shrink-0"
+             >
+               <Plus className="w-5 h-5" />
+             </button>
           </div>
         </div>
 
-        {/* Instances Table */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl">
+        <div className="mt-6 flex justify-start">
+             <div className="flex bg-slate-800 p-1 rounded-xl border border-slate-700">
+               <button 
+                onClick={() => setActiveTab("ACTIVE")}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-bold tracking-wider uppercase transition-all ${activeTab === "ACTIVE" ? "bg-slate-700 text-white shadow-lg" : "text-slate-500 hover:text-slate-300"}`}
+               >
+                 Active
+               </button>
+               <button 
+                onClick={() => setActiveTab("HISTORY")}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-bold tracking-wider uppercase transition-all ${activeTab === "HISTORY" ? "bg-slate-700 text-red-500 shadow-lg" : "text-slate-500 hover:text-slate-300"}`}
+               >
+                 Trash
+               </button>
+             </div>
+        </div>
+      </div>
+
+      {/* Main Content Area */}
+      <div className="bg-slate-900/40 border border-slate-800 rounded-[32px] shadow-2xl overflow-hidden backdrop-blur-md">
+        {/* Desktop Table View */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-black/50 text-slate-400 text-xs font-semibold uppercase tracking-widest border-b border-slate-800">
-                <th className="px-6 py-4">Company & Login URL</th>
-                <th className="px-6 py-4">Status</th>
-                <th className="px-6 py-4 text-center">Package</th>
-                <th className="px-6 py-4 text-center">Validity</th>
-                <th className="px-6 py-4 text-right">Service Actions</th>
+              <tr className="bg-black/20 text-slate-500 text-[10px] font-bold uppercase tracking-[0.2em] border-b border-slate-800/50">
+                <th className="px-8 py-5">Instance Identity</th>
+                <th className="px-6 py-5">Status Protocol</th>
+                <th className="px-6 py-5 text-center">Plan Tier</th>
+                <th className="px-6 py-5 text-center">Service Validity</th>
+                <th className="px-8 py-5 text-right">Operational Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/50">
+            <tbody className="divide-y divide-slate-800/30">
               {loading ? (
                  <tr>
-                    <td colSpan={4} className="py-20 text-center">
-                       <Loader2 className="w-8 h-8 animate-spin mx-auto text-slate-600" />
+                    <td colSpan={5} className="py-32 text-center">
+                       <Loader2 className="w-8 h-8 animate-spin mx-auto text-red-500/20" />
                     </td>
                  </tr>
               ) : displayTenants.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="py-20 text-center text-slate-500 italic">No records found for current segment.</td>
+                  <td colSpan={5} className="py-32 text-center">
+                    <div className="flex flex-col items-center gap-3 opacity-20">
+                       <Database className="w-12 h-12" />
+                       <p className="text-xs font-bold uppercase tracking-widest text-slate-400">No records found</p>
+                    </div>
+                  </td>
                 </tr>
               ) : displayTenants.map((tenant) => (
                 <tr key={tenant.id} className="hover:bg-white/[0.02] transition-colors group">
-                  <td className="px-6 py-5">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center border border-slate-700 font-bold text-slate-300">
+                  <td className="px-8 py-5">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center border border-slate-700/50 font-black text-slate-300 shadow-inner group-hover:border-red-500/30 transition-colors">
                         {tenant.slug.slice(0, 2).toUpperCase()}
                       </div>
                       <div>
-                        <div className="text-white font-semibold">{tenant.companyName}</div>
-                        <div className="text-xs text-slate-500 font-mono tracking-tighter">URL: /{tenant.slug}-hr</div>
+                        <div className="text-sm font-bold text-white group-hover:text-red-500 transition-colors">{tenant.companyName}</div>
+                        <div className="text-[10px] text-slate-500 font-medium tracking-wide">/{tenant.slug}-hr</div>
                       </div>
                     </div>
                   </td>
@@ -331,29 +355,29 @@ export default function TenantManagementPage() {
                       const isExpired = daysLeft <= 0;
                       
                       if (isExpired) return (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-500/10 text-red-500 border border-red-500/20">
-                          <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span> Expired / Frozen
+                        <span className="inline-flex items-center gap-2 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-red-500/5 text-red-500 border border-red-500/10">
+                          <span className="w-1 h-1 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]"></span> Expired
                         </span>
                       );
                       
                       if (tenant.status === "ACTIVE") return (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-500/10 text-green-500 border border-green-500/20">
-                          <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span> Service Active
+                        <span className="inline-flex items-center gap-2 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-emerald-500/5 text-emerald-500 border border-emerald-500/10">
+                          <span className="w-1 h-1 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] animate-pulse"></span> Active
                         </span>
                       );
 
                       return (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-yellow-500/10 text-yellow-500 border border-yellow-500/20">
+                        <span className="inline-flex items-center gap-2 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-amber-500/5 text-amber-500 border border-amber-500/10">
                           Frozen
                         </span>
                       );
                     })()}
                   </td>
                   <td className="px-6 py-5 text-center">
-                    <span className={`inline-flex px-3 py-1 rounded-lg text-xs font-bold border ${
-                      tenant.planName === 'Enterprise' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' :
-                      tenant.planName === 'Growth' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
-                      'bg-slate-800 text-slate-400 border-slate-700'
+                    <span className={`inline-flex px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border ${
+                      tenant.planName === 'Enterprise' ? 'bg-purple-500/5 text-purple-400 border-purple-500/10' :
+                      tenant.planName === 'Growth' ? 'bg-blue-500/5 text-blue-400 border-blue-500/10' :
+                      'bg-slate-800/30 text-slate-500 border-slate-800'
                     }`}>
                       {tenant.planName || 'Starter'}
                     </span>
@@ -361,26 +385,20 @@ export default function TenantManagementPage() {
                   <td className="px-6 py-5 text-center">
                     {(() => {
                       const daysLeft = getDaysLeft(tenant.subscriptionEnd);
-                      const isNear = daysLeft > 0 && daysLeft <= 7;
                       return (
-                        <div className="space-y-1">
-                          <div className={`text-sm font-bold ${daysLeft > 7 ? 'text-slate-300' : daysLeft > 0 ? 'text-amber-500' : 'text-red-500'}`}>
-                            {daysLeft > 0 ? (
-                              <span className="flex items-center justify-center gap-1">
-                                {isNear && <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping"></span>}
-                                {daysLeft} Days Left
-                              </span>
-                            ) : "End of Service"}
+                        <div className="space-y-0.5">
+                          <div className={`text-xs font-bold ${daysLeft > 7 ? 'text-slate-300' : daysLeft > 0 ? 'text-amber-500' : 'text-red-500/50'}`}>
+                            {daysLeft > 0 ? `${daysLeft} Days` : "Terminated"}
                           </div>
-                          <div className="text-[10px] text-slate-500 font-mono">
-                            Ends: {tenant.subscriptionEnd ? new Date(tenant.subscriptionEnd).toLocaleDateString() : "Never"}
+                          <div className="text-[9px] text-slate-600 font-medium">
+                            {tenant.subscriptionEnd ? new Date(tenant.subscriptionEnd).toLocaleDateString() : "Lifetime"}
                           </div>
                         </div>
                       );
                     })()}
                   </td>
-                  <td className="px-6 py-5 text-right">
-                    <div className="flex items-center justify-end gap-2">
+                  <td className="px-8 py-5 text-right">
+                    <div className="flex items-center justify-end gap-1.5 opacity-40 group-hover:opacity-100 transition-opacity">
                        {activeTab === "ACTIVE" ? (
                          <>
                            <button 
@@ -388,51 +406,46 @@ export default function TenantManagementPage() {
                                setEditingTenant(tenant);
                                setShowServicesModal(true);
                             }}
-                            className="p-2 transition-all bg-slate-800 text-orange-500 hover:bg-orange-500/10 rounded-lg"
-                            title="Manage Services"
+                            className="p-2 transition-all bg-slate-800 hover:bg-orange-500/10 text-slate-400 hover:text-orange-500 rounded-xl border border-transparent hover:border-orange-500/20"
                            >
-                            <Edit2 className="w-4 h-4" />
+                            <Edit2 className="w-3.5 h-3.5" />
                            </button>
                            <button 
                             onClick={() => openEditModal(tenant)}
-                            className="p-2 transition-all bg-slate-800 text-blue-500 hover:bg-blue-500/10 rounded-lg"
-                            title="Edit Core Settings"
+                            className="p-2 transition-all bg-slate-800 hover:bg-blue-500/10 text-slate-400 hover:text-blue-500 rounded-xl border border-transparent hover:border-blue-500/20"
                            >
-                            <Database className="w-4 h-4" />
+                            <Database className="w-3.5 h-3.5" />
                            </button>
                            <button 
                             onClick={() => toggleFreeze(tenant)}
-                            className={`p-2 rounded-lg transition-all ${
+                            className={`p-2 rounded-xl transition-all border border-transparent ${
                               tenant.status === "ACTIVE" 
-                              ? "bg-slate-800 text-yellow-500 hover:bg-yellow-500/10" 
-                              : "bg-yellow-600/20 text-yellow-500 hover:bg-yellow-600/40"
+                              ? "bg-slate-800 hover:bg-amber-500/10 text-slate-400 hover:text-amber-500 hover:border-amber-500/20" 
+                              : "bg-amber-600/20 text-amber-500 border-amber-600/20"
                             }`}
-                            title={tenant.status === "ACTIVE" ? "Freeze Account" : "Unfreeze"}
                            >
-                            {tenant.status === "ACTIVE" ? <PowerOff className="w-4 h-4" /> : <Power className="w-4 h-4" />}
+                            {tenant.status === "ACTIVE" ? <PowerOff className="w-3.5 h-3.5" /> : <Power className="w-3.5 h-3.5" />}
                            </button>
                            <button 
                             onClick={() => updateStatus(tenant, "DELETED")}
-                            className="p-2 bg-slate-800 text-slate-400 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
-                            title="Move to Trash"
+                            className="p-2 bg-slate-800 hover:bg-red-500/10 text-slate-400 hover:text-red-500 rounded-xl border border-transparent hover:border-red-500/20 transition-all"
                            >
-                             <Trash2 className="w-4 h-4" />
+                             <Trash2 className="w-3.5 h-3.5" />
                            </button>
                          </>
                        ) : (
                          <>
                            <button 
                             onClick={() => updateStatus(tenant, "ACTIVE")}
-                            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 text-green-500 hover:bg-green-500/10 rounded-lg text-xs font-bold transition-all"
+                            className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600/10 text-emerald-500 hover:bg-emerald-600 hover:text-white rounded-xl text-[10px] font-bold transition-all border border-emerald-500/20"
                            >
-                             <RefreshCcw className="w-3.5 h-3.5" /> Restore
+                             <RefreshCcw className="w-3 h-3" /> Restore Instance
                            </button>
                            <button 
                             onClick={() => hardDelete(tenant)}
-                            className="p-2 bg-slate-800 text-red-500 hover:bg-red-600 hover:text-white rounded-lg transition-all"
-                            title="Permanent Delete"
+                            className="p-2 bg-red-600/10 text-red-500 hover:bg-red-600 hover:text-white rounded-xl transition-all border border-red-500/20"
                            >
-                             <ShieldX className="w-4 h-4" />
+                             <ShieldX className="w-3.5 h-3.5" />
                            </button>
                          </>
                        )}
@@ -443,231 +456,313 @@ export default function TenantManagementPage() {
             </tbody>
           </table>
         </div>
-      </main>
+
+        {/* Mobile Card View */}
+        <div className="md:hidden divide-y divide-slate-800/30">
+            {loading ? (
+               <div className="py-20 flex justify-center">
+                  <Loader2 className="w-8 h-8 animate-spin text-red-500/20" />
+               </div>
+            ) : displayTenants.length === 0 ? (
+               <div className="py-20 text-center opacity-20">
+                  <Database className="w-12 h-12 mx-auto mb-3" />
+                  <p className="text-xs font-bold uppercase tracking-widest">No records found</p>
+               </div>
+            ) : displayTenants.map((tenant) => (
+               <div key={tenant.id} className="p-6 space-y-4 bg-black/20">
+                  <div className="flex justify-between items-start">
+                     <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center border border-slate-700 font-black text-slate-300">
+                           {tenant.slug.slice(0, 2).toUpperCase()}
+                        </div>
+                        <div>
+                           <div className="text-sm font-bold text-white">{tenant.companyName}</div>
+                           <div className="text-[10px] text-slate-500">/{tenant.slug}-hr</div>
+                        </div>
+                     </div>
+                     <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider border ${
+                        tenant.planName === 'Enterprise' ? 'bg-purple-500/5 text-purple-400 border-purple-500/10' :
+                        tenant.planName === 'Growth' ? 'bg-blue-500/5 text-blue-400 border-blue-500/10' :
+                        'bg-slate-800/30 text-slate-500 border-slate-800'
+                     }`}>
+                        {tenant.planName || 'Starter'}
+                     </span>
+                  </div>
+
+                  <div className="flex justify-between items-center py-2 border-y border-slate-800/30">
+                     <div className="space-y-1">
+                        <div className="text-[9px] font-bold text-slate-500 uppercase">Service Integrity</div>
+                        {(() => {
+                           const daysLeft = getDaysLeft(tenant.subscriptionEnd);
+                           if (daysLeft <= 0) return <div className="text-[10px] font-bold text-red-500">EXPIRED</div>;
+                           return <div className="text-[10px] font-bold text-emerald-500">OPERATIONAL</div>;
+                        })()}
+                     </div>
+                     <div className="text-right space-y-1">
+                        <div className="text-[9px] font-bold text-slate-500 uppercase">Time Remaining</div>
+                        <div className="text-[10px] font-bold text-white">{getDaysLeft(tenant.subscriptionEnd)} Days</div>
+                     </div>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-2">
+                     <div className="flex gap-2">
+                        <button onClick={() => { setEditingTenant(tenant); setShowServicesModal(true); }} className="p-2.5 bg-slate-800 text-slate-400 rounded-xl border border-slate-700"><Edit2 className="w-4 h-4" /></button>
+                        <button onClick={() => openEditModal(tenant)} className="p-2.5 bg-slate-800 text-slate-400 rounded-xl border border-slate-700"><Database className="w-4 h-4" /></button>
+                     </div>
+                     <div className="flex gap-2">
+                        <button onClick={() => toggleFreeze(tenant)} className="p-2.5 bg-slate-800 text-amber-500 rounded-xl border border-slate-700"><Power className="w-4 h-4" /></button>
+                        <button onClick={() => updateStatus(tenant, "DELETED")} className="p-2.5 bg-red-900/20 text-red-500 rounded-xl border border-red-900/20"><Trash2 className="w-4 h-4" /></button>
+                     </div>
+                  </div>
+               </div>
+            ))}
+         </div>
+       </div>
 
       {/* Manual Add/Edit Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={(e) => { if (e.target === e.currentTarget) { setShowModal(false); setDbTestStatus("idle"); setDbTestMessage(""); } }}>
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-xl shadow-2xl flex flex-col animate-in zoom-in-95 duration-200" style={{maxHeight: 'calc(100vh - 2rem)'}}>
-            {/* Modal Header - Fixed */}
-            <div className="bg-slate-800 px-8 py-5 flex items-center justify-between border-b border-slate-700 rounded-t-3xl flex-shrink-0">
-               <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                 <Building2 className="w-5 h-5 text-red-500" /> {editingTenant ? "Edit Tenant Profile" : "Onboard New Tenant"}
-               </h3>
-               <button onClick={() => { setShowModal(false); setDbTestStatus("idle"); setDbTestMessage(""); }} className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-all">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300" onClick={(e) => { if (e.target === e.currentTarget) { setShowModal(false); setDbTestStatus("idle"); setDbTestMessage(""); } }}>
+          <div className="bg-slate-900 border border-slate-800 rounded-[32px] w-full max-w-xl shadow-2xl flex flex-col animate-in zoom-in-95 duration-200 overflow-hidden" style={{maxHeight: 'calc(100vh - 4rem)'}}>
+            {/* Header */}
+            <div className="bg-slate-800/50 px-8 py-5 flex items-center justify-between border-b border-slate-800 flex-shrink-0">
+               <div className="flex items-center gap-3">
+                 <div className="p-2 bg-red-600 rounded-xl">
+                   <Building2 className="w-5 h-5 text-white" />
+                 </div>
+                 <h3 className="text-lg font-bold text-white tracking-tight">
+                   {editingTenant ? "Instance Configuration" : "New Tenant Protocol"}
+                 </h3>
+               </div>
+               <button onClick={() => { setShowModal(false); setDbTestStatus("idle"); setDbTestMessage(""); }} className="text-slate-400 hover:text-white transition-colors p-1">
                  <X className="w-5 h-5" />
                </button>
             </div>
             
-            {/* Modal Body - Scrollable */}
-            <div className="overflow-y-auto flex-1 p-8">
-              <form id="tenant-form" onSubmit={handleFormSubmit} className="space-y-5">
-                <div className="grid grid-cols-1 gap-4">
+            {/* Body */}
+            <div className="overflow-y-auto flex-1 p-8 custom-scrollbar">
+              <form id="tenant-form" onSubmit={handleFormSubmit} className="space-y-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Company Name</label>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-0.5">Company Label</label>
                     <input 
                       required 
-                      placeholder="Apple Inc."
+                      placeholder="e.g. Acme Corp"
                       value={formData.companyName}
                       onChange={(e) => setFormData({...formData, companyName: e.target.value})}
-                      className="w-full bg-black border border-slate-700 rounded-xl px-4 py-2.5 text-white outline-none focus:ring-2 focus:ring-red-600 transition-all" />
+                      className="w-full bg-black/40 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:ring-1 focus:ring-red-600 outline-none transition-all" />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Login URL Slug (Branding)</label>
-                    <div className="flex items-center bg-black border border-slate-700 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-red-600 transition-all">
-                      <span className="pl-4 text-slate-500 font-mono text-sm select-none">/</span>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-0.5">URL Handle (Slug)</label>
+                    <div className="flex items-center bg-black/40 border border-slate-800 rounded-xl overflow-hidden focus-within:ring-1 focus-within:ring-red-600 transition-all">
+                      <span className="pl-4 text-slate-700 font-mono text-xs select-none">/</span>
                       <input 
                         required 
-                        placeholder="apple"
+                        placeholder="handle"
                         value={formData.slug}
                         onChange={(e) => setFormData({...formData, slug: e.target.value.toLowerCase().trim().replace(/\s+/g, "-")})}
-                        className="w-full bg-transparent px-2 py-2.5 text-white outline-none font-mono" />
-                      <span className="pr-4 py-2.5 bg-slate-800/50 text-red-500 font-bold font-mono text-sm select-none border-l border-slate-700 whitespace-nowrap">
+                        className="w-full bg-transparent px-1 py-3 text-sm text-white outline-none font-mono" />
+                      <span className="pr-4 py-3 text-red-600/50 font-black font-mono text-xs select-none border-l border-slate-800 bg-slate-900/50 px-2 whitespace-nowrap">
                         -hr
                       </span>
                     </div>
-                    <p className="text-[10px] text-slate-500 px-1">Unique login URL: /{formData.slug || "company"}-hr</p>
                   </div>
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">MongoDB Connection String</label>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-0.5">MongoDB Instance URL</label>
                   <div className="flex gap-2">
                     <input 
                       required 
                       placeholder="mongodb+srv://..."
                       value={formData.dbUrl}
                       onChange={(e) => { setFormData({...formData, dbUrl: e.target.value}); setDbTestStatus("idle"); setDbTestMessage(""); }}
-                      className="flex-1 bg-black border border-slate-700 rounded-xl px-4 py-2.5 text-white outline-none focus:ring-2 focus:ring-red-600 transition-all font-mono text-xs min-w-0" />
+                      className="flex-1 bg-black/40 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white outline-none focus:ring-1 focus:ring-red-600 transition-all font-mono text-xs" />
                     <button
                       type="button"
                       onClick={testDbConnection}
                       disabled={dbTestStatus === "testing" || !formData.dbUrl}
-                      className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-xs font-bold text-slate-300 hover:text-white hover:border-slate-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all whitespace-nowrap"
+                      className="flex-shrink-0 flex items-center gap-2 px-4 rounded-xl bg-slate-800 border border-slate-700 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-white disabled:opacity-50 transition-all"
                     >
-                      {dbTestStatus === "testing" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wifi className="w-4 h-4" />}
+                      {dbTestStatus === "testing" ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wifi className="w-3 h-3" />}
                       Test
                     </button>
                   </div>
-                  <p className="text-[10px] text-slate-500 px-1">Must include database name after .net/ (e.g. /hr_db?appName=...)</p>
-                  {/* DB Test Result */}
                   {dbTestStatus !== "idle" && dbTestMessage && (
-                    <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium ${
-                      dbTestStatus === "success" ? "bg-green-500/10 border border-green-500/20 text-green-400" :
-                      dbTestStatus === "error" ? "bg-red-500/10 border border-red-500/20 text-red-400" :
-                      "bg-slate-800 text-slate-400"
+                    <div className={`mt-2 flex items-center gap-2 px-3 py-2 rounded-lg text-[10px] font-bold ${
+                      dbTestStatus === "success" ? "bg-emerald-500/5 text-emerald-500 border border-emerald-500/10" : "bg-red-500/5 text-red-500 border border-red-500/10"
                     }`}>
-                      {dbTestStatus === "success" ? <Wifi className="w-3.5 h-3.5 flex-shrink-0" /> : <WifiOff className="w-3.5 h-3.5 flex-shrink-0" />}
                       {dbTestMessage}
                     </div>
                   )}
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-5">
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Subscription Package</label>
-                    <select 
-                      value={formData.planName}
-                      onChange={(e) => setFormData({...formData, planName: e.target.value})}
-                      className="w-full bg-black border border-slate-700 rounded-xl px-4 py-2.5 text-white outline-none focus:ring-2 focus:ring-red-600 transition-all font-bold"
-                    >
-                      <option value="Starter">Starter Plan</option>
-                      <option value="Growth">Growth Plan</option>
-                      <option value="Enterprise">Enterprise Plan</option>
-                    </select>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-0.5">Subscription Tier</label>
+                    <div className="relative">
+                      <button 
+                        type="button"
+                        onClick={() => setShowPlanDropdown(!showPlanDropdown)}
+                        className="w-full bg-black/40 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white flex items-center justify-between focus:ring-1 focus:ring-red-600 outline-none transition-all font-bold group"
+                      >
+                        <span className="flex items-center gap-2">
+                           <div className={`w-2 h-2 rounded-full ${
+                              formData.planName === 'Enterprise' ? 'bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.5)]' :
+                              formData.planName === 'Growth' ? 'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]' :
+                              'bg-slate-400 shadow-[0_0_8px_rgba(148,163,184,0.5)]'
+                           }`} />
+                           {formData.planName}
+                        </span>
+                        <Zap className={`w-3.5 h-3.5 transition-transform duration-300 ${showPlanDropdown ? 'rotate-180 text-red-500' : 'text-slate-600 group-hover:text-slate-400'}`} />
+                      </button>
+
+                      {showPlanDropdown && (
+                        <>
+                          <div className="fixed inset-0 z-10" onClick={() => setShowPlanDropdown(false)} />
+                          <div className="absolute bottom-full left-0 right-0 mb-2 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden z-20 animate-in fade-in slide-in-from-bottom-2 duration-200 backdrop-blur-xl">
+                            {[
+                              { name: 'Starter', desc: 'Basic infrastructure', color: 'bg-slate-400' },
+                              { name: 'Growth', desc: 'Advanced analytics', color: 'bg-blue-500' },
+                              { name: 'Enterprise', desc: 'Dedicated resources', color: 'bg-purple-500' }
+                            ].map((plan) => (
+                              <button
+                                key={plan.name}
+                                type="button"
+                                onClick={() => {
+                                  setFormData({...formData, planName: plan.name});
+                                  setShowPlanDropdown(false);
+                                }}
+                                className="w-full px-4 py-3.5 text-left hover:bg-white/[0.03] flex items-center justify-between transition-colors group"
+                              >
+                                <div className="flex items-center gap-3">
+                                   <div className={`w-1.5 h-1.5 rounded-full ${plan.color}`} />
+                                   <div>
+                                      <div className={`text-xs font-bold ${formData.planName === plan.name ? 'text-white' : 'text-slate-400 group-hover:text-slate-200'}`}>
+                                         {plan.name}
+                                      </div>
+                                      <div className="text-[9px] text-slate-600 font-bold uppercase tracking-tighter">
+                                         {plan.desc}
+                                      </div>
+                                   </div>
+                                </div>
+                                {formData.planName === plan.name && (
+                                   <CheckCircle2 className="w-3.5 h-3.5 text-red-500" />
+                                )}
+                              </button>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </div>
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Extension (Days)</label>
-                    <select 
-                      value={formData.subscriptionDays}
-                      onChange={(e) => setFormData({...formData, subscriptionDays: e.target.value})}
-                      className="w-full bg-black border border-slate-700 rounded-xl px-4 py-2.5 text-white outline-none focus:ring-2 focus:ring-red-600 transition-all"
-                    >
-                      <option value="0">Unchanged</option>
-                      <option value="30">30 Days</option>
-                      <option value="90">90 Days</option>
-                      <option value="365">1 Year</option>
-                    </select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Base Employee Limit</label>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-0.5">User Capacity</label>
                     <input 
                       type="number"
                       value={formData.employeeLimit}
                       onChange={(e) => setFormData({...formData, employeeLimit: parseInt(e.target.value) || 0})}
-                      className="w-full bg-black border border-slate-700 rounded-xl px-4 py-2.5 text-white outline-none focus:ring-2 focus:ring-red-600 transition-all" />
+                      className="w-full bg-black/40 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:ring-1 focus:ring-red-600 outline-none transition-all" />
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 pt-4 border-t border-slate-800/50">
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Initial Admin Username</label>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-0.5">Root Admin Username</label>
                     <input 
                       required 
                       value={formData.adminUsername}
                       onChange={(e) => setFormData({...formData, adminUsername: e.target.value})}
-                      className="w-full bg-black border border-slate-700 rounded-xl px-4 py-2.5 text-white outline-none focus:ring-2 focus:ring-red-600 transition-all" />
+                      className="w-full bg-black/40 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white outline-none focus:ring-1 focus:ring-red-600 transition-all" />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Initial Admin Password</label>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-0.5">Root Password</label>
                     <div className="relative">
                       <input 
                         required 
                         type={showPassword ? "text" : "password"}
                         value={formData.adminPassword}
                         onChange={(e) => setFormData({...formData, adminPassword: e.target.value})}
-                        className="w-full bg-black border border-slate-700 rounded-xl pl-4 pr-12 py-2.5 text-white outline-none focus:ring-2 focus:ring-red-600 transition-all font-mono" />
+                        className="w-full bg-black/40 border border-slate-800 rounded-xl pl-4 pr-12 py-3 text-sm text-white outline-none focus:ring-1 focus:ring-red-600 transition-all font-mono" />
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-slate-500 hover:text-white transition-colors"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-slate-600 hover:text-white transition-colors"
                       >
                         {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
                     </div>
                   </div>
                 </div>
-
-
               </form>
             </div>
 
-            {/* Modal Footer - Fixed */}
-            <div className="px-8 py-5 border-t border-slate-800 flex items-center justify-end gap-3 bg-slate-900/80 rounded-b-3xl flex-shrink-0">
+            {/* Footer */}
+            <div className="px-8 py-5 border-t border-slate-800 flex items-center justify-end gap-4 bg-slate-900/50 flex-shrink-0">
                <button 
                 type="button"
                 onClick={() => { setShowModal(false); setDbTestStatus("idle"); setDbTestMessage(""); }}
-                className="px-6 py-2.5 rounded-xl font-bold text-slate-400 hover:text-white transition-colors">Cancel</button>
+                className="text-xs font-bold text-slate-500 hover:text-white transition-colors uppercase tracking-widest">Discard</button>
                <button 
                 type="submit"
                 form="tenant-form"
                 disabled={isSubmitting}
-                className="bg-red-600 hover:bg-red-700 text-white font-bold px-8 py-2.5 rounded-xl transition-all shadow-lg flex items-center gap-2">
-                 {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin text-white" /> : (editingTenant ? "Save Changes" : "Deploy Instance")}
+                className="bg-red-600 hover:bg-red-500 text-white text-xs font-bold px-8 py-3 rounded-xl transition-all shadow-lg shadow-red-600/10 flex items-center gap-2">
+                 {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : (editingTenant ? "Save Instance" : "Deploy Protocol")}
                </button>
             </div>
           </div>
         </div>
       )}
-      {/* Manage Services Modal */}
+
+      {/* Services Modal - Redesigned Premium */}
       {showServicesModal && editingTenant && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/80 backdrop-blur-xl animate-in fade-in duration-300" onClick={(e) => { if (e.target === e.currentTarget) setShowServicesModal(false); }}>
-           <div className="bg-[#0B0F1A] border border-white/10 rounded-[3rem] w-full max-w-md shadow-[0_32px_64px_-16px_rgba(0,0,0,0.6)] flex flex-col overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-8 duration-500 max-h-[90vh]">
-              {/* Premium Header */}
-              <div className="relative p-8 pb-6 overflow-hidden">
-                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-orange-500/50 to-transparent"></div>
-                 <div className="flex items-center justify-between relative z-10">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-6 bg-black/90 backdrop-blur-xl animate-in fade-in duration-300" onClick={(e) => { if (e.target === e.currentTarget) setShowServicesModal(false); }}>
+           <div className="bg-slate-900 border border-slate-800 rounded-[40px] w-full max-w-md shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-500 max-h-[90vh]">
+              {/* Header */}
+              <div className="relative p-8 pb-4">
+                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                       <div className="w-12 h-12 rounded-2xl bg-orange-500/10 flex items-center justify-center border border-orange-500/20 shadow-[0_0_20px_rgba(249,115,22,0.1)]">
+                       <div className="w-12 h-12 rounded-2xl bg-orange-600/10 flex items-center justify-center border border-orange-600/20 shadow-lg">
                           <ShieldCheck className="w-6 h-6 text-orange-500" />
                        </div>
                        <div>
-                          <h3 className="text-xl font-black text-white tracking-tight">Access Control</h3>
-                          <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-slate-500 mt-0.5">Instance: {editingTenant.slug}</p>
+                          <h3 className="text-xl font-bold text-white tracking-tight">Access Matrix</h3>
+                          <p className="text-[10px] uppercase tracking-widest font-black text-slate-600 mt-0.5">{editingTenant.slug}</p>
                        </div>
                     </div>
-                    <button onClick={() => setShowServicesModal(false)} className="w-10 h-10 flex items-center justify-center rounded-2xl bg-white/[0.03] border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 transition-all duration-300">
-                       <X className="w-5 h-5" />
+                    <button onClick={() => setShowServicesModal(false)} className="text-slate-500 hover:text-white transition-colors">
+                       <X className="w-6 h-6" />
                     </button>
                  </div>
               </div>
 
-              {/* Service List with Custom Scrollbar */}
-              <div className="flex-1 overflow-y-auto px-8 py-2 space-y-3 custom-scrollbar">
+              {/* List */}
+              <div className="flex-1 overflow-y-auto px-8 py-4 space-y-3 custom-scrollbar">
                  {[
-                   { id: 'attendance', label: 'Attendance & Reporting', desc: 'Punch logs & employee reports', icon: Clock },
-                   { id: 'leaves', label: 'Leave Management', desc: 'Balances & approval workflow', icon: CalendarDays },
-                   { id: 'payroll', label: 'Payroll & Salary', desc: 'Structures & monthly slips', icon: Coins },
-                   { id: 'loans', label: 'Loans & Advances', desc: 'Financial assistance tracking', icon: CreditCard },
-                   { id: 'costs', label: 'Office Cost Tracking', desc: 'Daily expense management', icon: Receipt },
-                   { id: 'spreadsheets', label: 'Company Spreadsheet', desc: 'External Google Sheets sync', icon: FileSpreadsheet },
+                   { id: 'attendance', label: 'Attendance Hub', desc: 'Sync & Reports', icon: Clock },
+                   { id: 'leaves', label: 'Leave Protocol', desc: 'Flows & Balance', icon: CalendarDays },
+                   { id: 'payroll', label: 'Payroll Engine', desc: 'Structures & Slips', icon: Coins },
+                   { id: 'loans', label: 'Financial Core', desc: 'Loans & Advances', icon: CreditCard },
+                   { id: 'costs', label: 'Capital Tracking', desc: 'Office Expenses', icon: Receipt },
+                   { id: 'spreadsheets', label: 'Data Exchange', desc: 'Google Sheets', icon: FileSpreadsheet },
                  ].map((service) => {
                     const isEnabled = editingTenant.permissions?.[service.id] !== false;
                     return (
-                      <div key={service.id} className="group relative flex items-center justify-between p-4 bg-white/[0.02] border border-white/5 rounded-3xl hover:bg-white/[0.04] hover:border-white/10 transition-all duration-300">
+                      <div key={service.id} className="group flex items-center justify-between p-4 bg-white/[0.02] border border-white/5 rounded-3xl hover:bg-white/[0.04] transition-all">
                          <div className="flex items-center gap-4">
-                           <div className={`p-2.5 rounded-xl border transition-colors duration-300 ${isEnabled ? 'bg-orange-500/5 border-orange-500/10 text-orange-500' : 'bg-slate-800/50 border-slate-700/50 text-slate-600'}`}>
-                             {service.icon ? <service.icon className="w-4 h-4" /> : <ShieldCheck className="w-4 h-4" />}
-                           </div>
-                           <div className="space-y-0.5">
-                              <div className="text-xs font-bold text-white group-hover:text-orange-400 transition-colors">{service.label}</div>
-                              <div className="text-[9px] text-slate-500 font-medium">{service.desc}</div>
-                           </div>
+                            <div className={`p-2.5 rounded-xl border transition-colors ${isEnabled ? 'bg-orange-600/10 border-orange-600/20 text-orange-500' : 'bg-slate-800 text-slate-600 border-slate-700'}`}>
+                               <service.icon className="w-4 h-4" />
+                            </div>
+                            <div>
+                               <div className="text-xs font-bold text-white tracking-wide">{service.label}</div>
+                               <div className="text-[9px] text-slate-600 font-bold uppercase tracking-tighter">{service.desc}</div>
+                            </div>
                          </div>
                          <button 
                            onClick={async () => {
-                              const defaultPerms = {
-                                attendance: true,
-                                leaves: true,
-                                payroll: true,
-                                loans: true,
-                                advances: true,
-                                costs: true,
-                                spreadsheets: true
-                              };
+                              const defaultPerms = { attendance: true, leaves: true, payroll: true, loans: true, advances: true, costs: true, spreadsheets: true };
                               const currentPerms = (editingTenant.permissions && typeof editingTenant.permissions === 'object') ? editingTenant.permissions : defaultPerms;
                               const newPermissions = { ...defaultPerms, ...currentPerms, [service.id]: !isEnabled };
-
                               try {
                                 const res = await fetch("/api/super-admin/companies", {
                                   method: "PUT",
@@ -678,65 +773,56 @@ export default function TenantManagementPage() {
                                   setEditingTenant({ ...editingTenant, permissions: newPermissions });
                                   fetchTenants();
                                 }
-                              } catch (e) {
-                                alert("Update failed");
-                              }
+                              } catch (e) { alert("Update failed"); }
                            }}
-                           className={`relative inline-flex h-6 w-11 items-center rounded-full transition-all duration-300 focus:outline-none ring-2 ring-offset-2 ring-offset-[#0B0F1A] ${isEnabled ? 'bg-orange-600 ring-orange-500/20' : 'bg-slate-800 ring-transparent'}`}
+                           className={`h-5 w-9 rounded-full transition-all flex items-center px-0.5 ${isEnabled ? 'bg-orange-600' : 'bg-slate-800'}`}
                          >
-                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-lg transition-all duration-300 ${isEnabled ? 'translate-x-[1.375rem]' : 'translate-x-1'}`} />
+                            <div className={`h-4 w-4 rounded-full bg-white shadow-md transition-all ${isEnabled ? 'translate-x-4' : 'translate-x-0'}`} />
                          </button>
                       </div>
                     );
                  })}
               </div>
 
-              {/* Quota Footer */}
-              <div className="p-8 pt-6">
-                 <div className="relative group p-6 bg-gradient-to-br from-orange-500/10 to-transparent border border-orange-500/20 rounded-[2.5rem] overflow-hidden">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/5 rounded-full blur-3xl -mr-16 -mt-16"></div>
-                    <div className="flex items-center justify-between relative z-10">
-                      <div className="space-y-1">
-                        <div className="text-[10px] font-black text-orange-500 uppercase tracking-[0.15em]">Employee Quota</div>
-                        <div className="text-xs text-slate-400 font-medium max-w-[120px] leading-tight">Total active seats allowed</div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <input 
-                          type="number"
-                          id="employee-limit-input"
-                          defaultValue={editingTenant.employeeLimit || 50}
-                          className="w-16 bg-black/40 border border-white/10 rounded-2xl px-2 py-3 text-center text-white font-black text-lg outline-none focus:ring-2 focus:ring-orange-500/50 transition-all font-mono"
-                        />
-                        <button
-                          onClick={async () => {
-                            const input = document.getElementById('employee-limit-input') as HTMLInputElement;
-                            const newLimit = parseInt(input.value) || 0;
-                            try {
-                              const res = await fetch("/api/super-admin/companies", {
-                                method: "PUT",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ id: editingTenant.id, employeeLimit: newLimit }),
-                              });
-                              if (res.ok) {
-                                setEditingTenant({ ...editingTenant, employeeLimit: newLimit });
-                                fetchTenants();
-                              }
-                            } catch (e) {
-                              alert("Failed to update limit");
+              {/* Quota */}
+              <div className="p-8 space-y-4">
+                 <div className="p-5 bg-slate-800/40 border border-slate-800 rounded-3xl flex items-center justify-between">
+                    <div className="space-y-1">
+                      <div className="text-[10px] font-black text-orange-500 uppercase tracking-widest">Seat Quota</div>
+                      <div className="text-[9px] text-slate-600 font-bold uppercase tracking-tighter">Instance Employee Limit</div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input 
+                        type="number"
+                        id="employee-limit-input"
+                        defaultValue={editingTenant.employeeLimit || 50}
+                        className="w-12 bg-black/40 border border-slate-800 rounded-xl p-2 text-center text-white font-bold text-xs"
+                      />
+                      <button
+                        onClick={async () => {
+                          const input = document.getElementById('employee-limit-input') as HTMLInputElement;
+                          const newLimit = parseInt(input.value) || 0;
+                          try {
+                            const res = await fetch("/api/super-admin/companies", {
+                              method: "PUT",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ id: editingTenant.id, employeeLimit: newLimit }),
+                            });
+                            if (res.ok) {
+                              setEditingTenant({ ...editingTenant, employeeLimit: newLimit });
+                              fetchTenants();
                             }
-                          }}
-                          className="h-12 px-6 bg-orange-600 hover:bg-orange-500 text-white text-[10px] font-black tracking-widest rounded-2xl transition-all duration-300 shadow-[0_10px_20px_-5px_rgba(234,88,12,0.3)] active:scale-95"
-                        >
-                          SAVE
-                        </button>
-                      </div>
+                          } catch (e) { alert("Failed to update limit"); }
+                        }}
+                        className="p-2 bg-orange-600 text-white rounded-xl hover:bg-orange-500 transition-colors"
+                      >
+                        <Save className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                  </div>
-                 <div className="mt-6 text-center">
-                    <p className="text-[9px] text-slate-500 font-bold uppercase tracking-[0.2em] opacity-40">
-                      Syncing live permissions across instances
-                    </p>
-                 </div>
+                 <p className="text-[8px] text-slate-700 text-center font-bold uppercase tracking-widest">
+                    Synchronizing live permissions with node instances
+                 </p>
               </div>
            </div>
         </div>
@@ -744,4 +830,3 @@ export default function TenantManagementPage() {
     </div>
   );
 }
-

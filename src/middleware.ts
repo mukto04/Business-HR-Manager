@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import * as jose from "jose";
 
 const HR_COOKIE = "hr_auth_token";
 const PUBLIC_PATHS = [
@@ -10,7 +11,9 @@ const PUBLIC_PATHS = [
   "/api/auth/employee-login",
   "/super-admin/login",
   "/api/super-admin/login",
+  "/api/super-admin/settings/public",
   "/public",
+  "/api/landing-page",
   "/api/debug-db",
   "/api/attendance/heartbeat",
   "/api/attendance/sync-push"
@@ -53,9 +56,15 @@ export async function middleware(request: NextRequest) {
           url.pathname = "/login";
           url.searchParams.set("slug", slugPart);
         } else {
-          // /appdevsuk-hr/dashboard → rewrite to /dashboard
-          // /appdevsuk-hr/employees → rewrite to /employees
-          url.pathname = afterHr; // e.g. "/dashboard"
+          // /appdevsuk-hr/dashboard → rewrite to /dashboard if logged in, else redirect to login
+          const hrToken = request.cookies.get(HR_COOKIE)?.value;
+          if (!hrToken) {
+            const loginUrl = new URL("/login", request.url);
+            loginUrl.searchParams.set("slug", slugPart);
+            loginUrl.searchParams.set("redirect", pathname);
+            return NextResponse.redirect(loginUrl);
+          }
+          url.pathname = afterHr;
           url.searchParams.delete("slug");
         }
         return NextResponse.rewrite(url);
@@ -75,6 +84,13 @@ export async function middleware(request: NextRequest) {
           url.pathname = "/employee-login";
           url.searchParams.set("slug", slugPart);
         } else {
+          const empToken = request.cookies.get("employee_session")?.value;
+          if (!empToken) {
+            const loginUrl = new URL("/employee-login", request.url);
+            loginUrl.searchParams.set("slug", slugPart);
+            loginUrl.searchParams.set("redirect", pathname);
+            return NextResponse.redirect(loginUrl);
+          }
           url.pathname = afterEmp;
         }
         return NextResponse.rewrite(url);
@@ -107,7 +123,17 @@ export async function middleware(request: NextRequest) {
   if (isEmployeePortal) {
     const empToken = request.cookies.get("employee_session")?.value;
     if (!empToken) return NextResponse.redirect(new URL("/employee-login", request.url));
-    return NextResponse.next();
+    
+    try {
+      const secret = new TextEncoder().encode(process.env.SESSION_SECRET || "fallback-secret");
+      await jose.jwtVerify(empToken, secret);
+      return NextResponse.next();
+    } catch (err) {
+      // Token expired or invalid
+      const response = NextResponse.redirect(new URL("/employee-login", request.url));
+      response.cookies.delete("employee_session");
+      return response;
+    }
   }
 
   // 5. HR Portal Check (Fallback)
@@ -116,7 +142,9 @@ export async function middleware(request: NextRequest) {
 
   if (!hrToken) {
     if (pathname === "/login") return NextResponse.next();
-    return NextResponse.redirect(new URL("/login", request.url));
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("redirect", pathname);
+    return NextResponse.redirect(loginUrl);
   }
 
   return NextResponse.next();

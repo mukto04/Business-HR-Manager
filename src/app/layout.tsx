@@ -2,8 +2,15 @@ import "./globals.css";
 import type { Metadata } from "next";
 import { AppShell } from "@/components/layout/app-shell";
 import { DialogProvider } from "@/components/ui/dialog-provider";
+import { Plus_Jakarta_Sans } from "next/font/google";
 
 import { masterPrisma } from "@/lib/prisma";
+
+const jakarta = Plus_Jakarta_Sans({ 
+  subsets: ["latin"],
+  variable: "--font-jakarta",
+  weight: ["400", "500", "600", "700", "800"],
+});
 
 export async function generateMetadata(): Promise<Metadata> {
   try {
@@ -29,12 +36,18 @@ export async function generateMetadata(): Promise<Metadata> {
   }
 }
 
+import { Toaster } from "sonner";
+import { GlobalSettingsProvider } from "@/components/providers/global-settings-provider";
+
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning className={jakarta.variable}>
+      <body suppressHydrationWarning className={`${jakarta.className} antialiased`}>
         <DialogProvider>
-          <AppShell>{children}</AppShell>
+          <GlobalSettingsProvider>
+            <AppShell>{children}</AppShell>
+            <Toaster position="top-center" richColors />
+          </GlobalSettingsProvider>
         </DialogProvider>
       </body>
     </html>

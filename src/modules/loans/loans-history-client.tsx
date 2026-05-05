@@ -10,7 +10,7 @@ import { useAsyncData } from "@/modules/shared/use-async-data";
 import Link from "next/link";
 import { LoadingState } from "@/modules/shared/loading-state";
 import { ErrorState } from "@/modules/shared/error-state";
-import { formatCurrency } from "@/utils/calculations";
+import { useCurrencyFormatter } from "@/hooks/use-currency-formatter";
 import { ArrowLeft } from "lucide-react";
 import { Select } from "@/components/ui/select";
 
@@ -18,6 +18,7 @@ export function LoansHistoryClient() {
   const loans = useAsyncData<Loan[]>("/api/loans?history=true", []);
   const [query, setQuery] = useState("");
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const fmt = useCurrencyFormatter();
 
   const years = useMemo(() => {
     const current = new Date().getFullYear();
@@ -75,8 +76,8 @@ export function LoansHistoryClient() {
         data={filtered}
         columns={[
           { key: "employee", title: "Employee", render: (row) => row.employee?.name || "-" },
-          { key: "loanAmount", title: "Loan Amount", render: (row) => formatCurrency(row.loanAmount) },
-          { key: "paidAmount", title: "Paid Amount", render: (row) => formatCurrency(row.paidAmount) },
+          { key: "loanAmount", title: "Loan Amount", render: (row) => fmt(row.loanAmount) },
+          { key: "paidAmount", title: "Paid Amount", render: (row) => fmt(row.paidAmount) },
           { 
             key: "date", 
             title: "Date Created", 

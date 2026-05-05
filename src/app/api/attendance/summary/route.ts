@@ -47,6 +47,16 @@ export async function GET(request: Request) {
       }
     });
 
+    // Fetch all break records for this month
+    const breaks = await (await getTenantPrisma()).breakRecord.findMany({
+      where: {
+        date: {
+          gte: startDate,
+          lte: endDate,
+        }
+      }
+    });
+
     // Precompute holidays as a map for O(1) lookups
     const holidayMap = new Map(holidays.map(h => [format(new Date(new Date(h.date).getTime() + 12 * 60 * 60 * 1000), "yyyy-MM-dd"), h]));
 
@@ -54,8 +64,16 @@ export async function GET(request: Request) {
       const employeeAttendances = attendances.filter(a => a.employeeId === employee.id);
       const attMap = new Map(employeeAttendances.map(a => [format(new Date(new Date(a.date).getTime() + 12 * 60 * 60 * 1000), "yyyy-MM-dd"), a]));
       
+      const employeeBreaks = breaks.filter(b => b.employeeId === employee.id);
+      const breakMap = new Map<string, number>();
+      employeeBreaks.forEach(b => {
+        const key = format(new Date(new Date(b.date).getTime() + 12 * 60 * 60 * 1000), "yyyy-MM-dd");
+        breakMap.set(key, (breakMap.get(key) || 0) + b.duration);
+      });
+
       let presentCount = 0;
       let totalWorkingMs = 0;
+      let totalBreakMins = 0;
       const dailyRecords: Record<string, any> = {};
 
       daysInMonth.forEach(day => {
@@ -69,13 +87,28 @@ export async function GET(request: Request) {
         
         if (att) {
           status = att.status;
-          const hasBothPunches = att.checkIn && att.checkOut;
           const isPresentLike = status === "PRESENT" || status === "LATE" || status === "HALF_DAY";
           
-          if (hasBothPunches && isPresentLike) {
+          if (isPresentLike) {
+            const weight = status === "HALF_DAY" ? 0.5 : 1.0;
+            presentCount += weight;
             countsAsPresent = true;
-            presentCount++;
-            totalWorkingMs += (att.checkOut as Date).getTime() - (att.checkIn as Date).getTime();
+            
+            if (att.checkIn && att.checkOut) {
+              const ci = new Date(att.checkIn as Date);
+              const co = new Date(att.checkOut as Date);
+              
+              if (co.getTime() > ci.getTime()) {
+                let dailyDurationMs = co.getTime() - ci.getTime();
+                
+                // Subtract breaks
+                const breakMins = breakMap.get(dateKey) || 0;
+                totalBreakMins += breakMins;
+                dailyDurationMs = Math.max(0, dailyDurationMs - (breakMins * 60 * 1000));
+                
+                totalWorkingMs += dailyDurationMs * weight;
+              }
+            }
           }
         } else if (isWeekend || holiday) {
           status = "WEEKEND";
@@ -109,6 +142,7 @@ export async function GET(request: Request) {
         summary: {
           present: presentCount,
           absent: absentCount,
+          totalBreakHours: parseFloat((totalBreakMins / 60).toFixed(2)),
           avgWorkingHours: parseFloat(avgWorkingHours.toFixed(2))
         }
       };

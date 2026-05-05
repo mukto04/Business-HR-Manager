@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTenantPrisma } from "@/lib/prisma";
 import { loanSchema, toLoanPayload } from "@/app/api/_helpers";
+import { createNotification } from "@/lib/notify";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -41,6 +42,14 @@ export async function POST(request: NextRequest) {
     const loan = await (await getTenantPrisma()).loan.create({
       data: toLoanPayload(parsed),
       include: { employee: true }
+    });
+
+    // Notify Employee
+    await createNotification({
+      employeeId: loan.employeeId,
+      title: "Loan Approved",
+      message: `A new loan of BDT ${loan.loanAmount} has been approved and issued to you.`,
+      type: "LOAN"
     });
 
     return NextResponse.json(loan, { status: 201 });

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getTenantPrisma } from "@/lib/prisma";
 import { getZKService } from "@/lib/zk-service";
 import { format } from "date-fns";
+import { calculateAttendanceStatus } from "@/lib/attendance-utils";
 
 export async function POST() {
   let zkService;
@@ -37,6 +38,12 @@ export async function POST() {
 
     console.log(`Sync: Grouped ${logs.length} logs into ${groupedLogs.size} unique sessions.`);
 
+    const settings = await (await getTenantPrisma()).tenantSettings.findFirst();
+    const halfDayThreshold = settings?.halfDayThreshold || 420;
+    const lateThresholdTime = settings?.lateThresholdTime;
+    const weeklySchedule = settings?.weeklySchedule as any[];
+    const defaultInTime = settings?.defaultInTime;
+
     // --- Process each group ---
     for (const [key, data] of groupedLogs.entries()) {
       try {
@@ -68,24 +75,38 @@ export async function POST() {
         // Determine if we have a valid checkout (at least 5 minutes gap)
         const hasValidCheckout = latest.getTime() - earliest.getTime() >= 5 * 60 * 1000;
 
-        if (!existing) {
-          // No record for this day: Create it
-          await (await getTenantPrisma()).attendance.create({
-            data: {
-              employeeId: employee.id,
-              date: dateObj,
-              checkIn: earliest,
-              checkOut: hasValidCheckout ? latest : null,
-              status: "PRESENT",
-              isManual: false,
-            },
-          });
-          syncCount++;
-        } else {
-          // Record exists: Update it with the absolute min/max
-          let updateData: any = {};
-          
-          if (!existing.checkIn || earliest < existing.checkIn) {
+          if (!existing) {
+            // No record for this day: Create it
+            const checkIn = earliest;
+            const checkOut = hasValidCheckout ? latest : null;
+            const status = calculateAttendanceStatus(
+              checkIn, 
+              checkOut, 
+              halfDayThreshold, 
+              lateThresholdTime,
+              weeklySchedule,
+              defaultInTime
+            );
+
+            await (await getTenantPrisma()).attendance.create({
+              data: {
+                employeeId: employee.id,
+                date: dateObj,
+                checkIn,
+                checkOut,
+                status,
+                isManual: false,
+              },
+            });
+            syncCount++;
+          } else if (existing.isManual) {
+            // Manual data takes precedence. Do not overwrite.
+            skipCount++;
+          } else {
+            // Record exists: Update it with the absolute min/max
+            let updateData: any = {};
+            
+            if (!existing.checkIn || earliest < existing.checkIn) {
             updateData.checkIn = earliest;
           }
           
@@ -99,10 +120,22 @@ export async function POST() {
           }
 
           if (Object.keys(updateData).length > 0) {
+            const finalCheckIn = updateData.checkIn || existing.checkIn;
+            const finalCheckOut = updateData.checkOut || existing.checkOut;
+            const status = calculateAttendanceStatus(
+              finalCheckIn, 
+              finalCheckOut, 
+              halfDayThreshold, 
+              lateThresholdTime,
+              weeklySchedule,
+              defaultInTime
+            );
+
             await (await getTenantPrisma()).attendance.update({
               where: { id: existing.id },
               data: {
                 ...updateData,
+                status,
                 isManual: false,
               },
             });

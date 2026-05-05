@@ -9,6 +9,8 @@ import { Select } from "@/components/ui/select";
 import { Printer, Loader2, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ServiceGuard } from "@/components/shared/service-guard";
+import { CustomSelect } from "@/components/ui/custom-select";
+import { useTranslation } from "@/hooks/use-translation";
 
 export default function AttendanceReportPage() {
   const [loading, setLoading] = useState(true);
@@ -17,6 +19,7 @@ export default function AttendanceReportPage() {
   const [year, setYear] = useState(() => String(new Date().getFullYear()));
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const { t } = useTranslation();
 
   const months = [
     { label: "January", value: "1" },
@@ -70,7 +73,7 @@ export default function AttendanceReportPage() {
     return (
       <div className="flex flex-col items-center justify-center p-20 text-slate-500">
         <Loader2 className="h-10 w-10 animate-spin text-brand-600 mb-4" />
-        <p>Generating detailed report...</p>
+        <p>{t("Generating detailed report...")}</p>
       </div>
     );
   }
@@ -82,9 +85,9 @@ export default function AttendanceReportPage() {
            <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-rose-100 text-rose-600 mb-4">
              <span className="text-xl font-bold">!</span>
            </div>
-           <h3 className="text-lg font-bold text-slate-900 mb-2">Error Generating Report</h3>
+           <h3 className="text-lg font-bold text-slate-900 mb-2">{t("Error Generating Report")}</h3>
            <p className="text-slate-600 mb-6 max-w-md mx-auto">{error}</p>
-           <Button onClick={() => fetchReport()}>Try Again</Button>
+           <Button onClick={() => fetchReport()}>{t("Try Again")}</Button>
         </Card>
       </div>
     );
@@ -97,36 +100,38 @@ export default function AttendanceReportPage() {
     <div className="space-y-6 print:space-y-0 print:p-0">
       <div className="print:hidden text-slate-700">
         <PageHeader
-          title="Monthly Attendance Report"
-          subtitle="Enterprise-grade matrix view with shift analysis and performance summary"
+          title={t("Monthly Attendance Report")}
+          subtitle={t("Enterprise-grade matrix view with shift analysis and performance summary")}
           actions={
             <Button onClick={handlePrint} className="gap-2 shadow-soft-xl hover:scale-105 transition-all">
-              <Printer className="h-4 w-4" /> Export Professional PDF
+              <Printer className="h-4 w-4" /> {t("Export Professional PDF")}
             </Button>
           }
         />
 
         <Card className="p-5 mt-6 border-slate-200">
           <div className="flex flex-wrap items-end gap-6 text-slate-700">
-            <div className="space-y-2 min-w-[180px]">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Select Month</label>
-              <Select value={month} onChange={(e) => setMonth(e.target.value)} className="rounded-xl border-slate-200">
-                {months.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
-              </Select>
-            </div>
-            <div className="space-y-2 min-w-[120px]">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Select Year</label>
-              <Select value={year} onChange={(e) => setYear(e.target.value)} className="rounded-xl border-slate-200">
-                {years.map(y => <option key={y.value} value={y.value}>{y.label}</option>)}
-              </Select>
-            </div>
+            <CustomSelect 
+              label={t("Select Month")}
+              options={months.map(m => ({...m, label: t(m.label)}))}
+              value={month}
+              onChange={setMonth}
+              className="min-w-[180px]"
+            />
+            <CustomSelect 
+              label={t("Select Year")}
+              options={years}
+              value={year}
+              onChange={setYear}
+              className="min-w-[120px]"
+            />
             
             <div className="space-y-2 flex-1 min-w-[240px]">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Search Employee</label>
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">{t("Search Employee")}</label>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                 <Input 
-                  placeholder="Search by name or employee code..." 
+                  placeholder={t("Search by name or employee code...")}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10 rounded-xl border-slate-200"
@@ -142,14 +147,14 @@ export default function AttendanceReportPage() {
           {/* Print Header */}
           <div className="hidden print:flex justify-between items-end p-8 border-b-4 border-black mb-6 bg-white">
              <div className="text-black">
-                <h1 className="text-2xl font-bold tracking-tight leading-none uppercase">Monthly Attendance Report</h1>
+                <h1 className="text-2xl font-bold tracking-tight leading-none uppercase">{t("Monthly Attendance Report")}</h1>
                 <p className="text-gray-600 text-[10px] font-bold tracking-widest mt-2 uppercase">
-                   {monthName} {year} • Generated on {format(new Date(), "dd MMM, yyyy")}
+                   {monthName ? t(monthName) : ""} {year} • {t("Generated on")} {format(new Date(), "dd MMM, yyyy")}
                 </p>
              </div>
              <div className="text-right">
                 <h2 className="text-xl font-bold text-blue-700">AppDevs HR</h2>
-                <div className="text-[8px] text-gray-400 font-bold uppercase tracking-tighter">Management Information System</div>
+                <div className="text-[8px] text-gray-400 font-bold uppercase tracking-tighter">{t("Management Information System")}</div>
              </div>
           </div>
 
@@ -158,7 +163,7 @@ export default function AttendanceReportPage() {
               <thead className="bg-slate-50 border-b border-slate-100 uppercase tracking-widest print:bg-white print:text-black">
                 <tr>
                   <th className="sticky left-0 bg-slate-50 z-20 px-4 py-4 font-bold text-slate-900 text-[10px] border-r border-slate-200 w-[200px] print:static print:w-[130px] print:border print:text-black">
-                    Employee Details
+                    {t("Employee Details")}
                   </th>
                   {data.dates?.map((d: any) => (
                     <th key={d.full} className={`px-0.5 py-2 border-r border-slate-200 text-center font-bold min-w-[38px] print:border print:w-[32px] print:min-w-0 ${d.isWeekend ? 'bg-sky-50 text-sky-800' : 'text-slate-500'}`}>
@@ -167,7 +172,7 @@ export default function AttendanceReportPage() {
                     </th>
                   ))}
                   <th className="px-4 py-4 font-bold text-slate-900 border-l border-slate-200 text-center w-[120px] bg-slate-50 print:static print:border print:bg-white print:text-black print:w-[120px] print:min-w-[120px]">
-                    Monthly Summary
+                    {t("Monthly Summary")}
                   </th>
                 </tr>
               </thead>
@@ -196,14 +201,37 @@ export default function AttendanceReportPage() {
                         if (rec.status === "WEEKEND") {
                            return (
                              <td key={d.full} className="px-0.5 py-2 bg-sky-50 border-r border-slate-200 align-middle text-center print:border print:bg-[#f0f9ff]">
-                               <div className="font-bold text-sky-700 text-[10px] print:text-sky-700">W</div>
+                               <div className="font-bold text-sky-700 text-[10px] print:text-sky-700">{t("W")}</div>
                              </td>
                            );
                         }
 
                         if (rec.status === "ABSENT") {
                            return (
-                             <td key={d.full} className="px-0.5 py-2 border-r border-slate-200 align-middle text-center print:border print:bg-white print:text-red-600 font-bold text-rose-600 text-[11px]">A</td>
+                             <td key={d.full} className="px-0.5 py-2 border-r border-slate-200 align-middle text-center print:border print:bg-white print:text-red-600 font-bold text-rose-600 text-[11px]">{t("A")}</td>
+                           );
+                        }
+
+                        if (rec.status === "HALF_DAY") {
+                           return (
+                             <td key={d.full} className="px-0.5 py-2 border-r border-slate-200 text-center align-middle whitespace-nowrap print:border print:bg-white bg-rose-50/20">
+                               <div className="h-4 leading-4 text-rose-600 font-bold text-[8px] print:text-rose-600 print:text-[7px]">
+                                 {checkInStr ? (
+                                   <>
+                                     {checkInStr.split(' ')[0]}
+                                     <span className="text-[5px] ml-0.5 font-bold uppercase">{checkInStr.split(' ')[1]}</span>
+                                   </>
+                                 ) : "-"}
+                               </div>
+                               <div className="h-4 leading-4 text-rose-500 font-bold text-[8px] print:text-rose-500 print:text-[7px]">
+                                 {checkOutStr ? (
+                                   <>
+                                     {checkOutStr.split(' ')[0]}
+                                     <span className="text-[5px] ml-0.5 font-bold uppercase">{checkOutStr.split(' ')[1]}</span>
+                                   </>
+                                 ) : "-"}
+                               </div>
+                             </td>
                            );
                         }
 
@@ -234,6 +262,14 @@ export default function AttendanceReportPage() {
                            <span className="text-emerald-700 text-right print:text-emerald-700">{emp.summary.present}</span>
                            <span className="text-slate-600 print:text-black">ABST:</span>
                            <span className="text-rose-600 text-right print:text-rose-600">{emp.summary.absent}</span>
+                           <span className="text-slate-600 print:text-black">BRKS:</span>
+                           <span className="text-amber-600 text-right print:text-amber-600">
+                              {(() => {
+                                const h = Math.floor(emp.summary.totalBreakHours || 0);
+                                const m = Math.round(((emp.summary.totalBreakHours || 0) - h) * 60);
+                                return `${h}h ${m}m`;
+                              })()}
+                           </span>
                            <span className="text-slate-600 print:text-black">AVRG:</span>
                            <span className={`text-right whitespace-nowrap ${isUnderperform ? 'text-rose-600' : 'text-slate-950 font-black'}`}>
                              {(() => {
@@ -252,10 +288,10 @@ export default function AttendanceReportPage() {
           </div>
           
           <div className="hidden print:flex justify-between items-center p-10 text-[8px] text-gray-500 border-t border-gray-100 mt-10 uppercase font-bold tracking-widest">
-             <div>AppDevs Management Information System • Official Attendance Record</div>
+             <div>{t("AppDevs Management Information System • Official Attendance Record")}</div>
              <div className="flex gap-16">
-                <div className="border-t border-black pt-3 min-w-[120px] text-center text-black">Department Head</div>
-                <div className="border-t border-black pt-3 min-w-[120px] text-center text-black">HR Administrator</div>
+                <div className="border-t border-black pt-3 min-w-[120px] text-center text-black">{t("Department Head")}</div>
+                <div className="border-t border-black pt-3 min-w-[120px] text-center text-black">{t("HR Administrator")}</div>
              </div>
           </div>
         </div>

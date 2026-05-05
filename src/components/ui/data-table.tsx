@@ -15,17 +15,18 @@ export function DataTable<T>({
   columns,
   loading = false,
   emptyMessage = "No data found",
-  rowClassName
+  rowClassName,
+  noCard = false
 }: {
   data: T[];
   columns: Column<T>[];
   loading?: boolean;
   emptyMessage?: string;
   rowClassName?: (row: T) => string | undefined;
+  noCard?: boolean;
 }) {
-  return (
-    <Card className="overflow-hidden">
-      <div className="overflow-x-auto">
+  const content = (
+      <div className="overflow-x-auto w-full">
         <table className="min-w-full text-sm">
           <thead className="bg-slate-50 text-left">
             <tr>
@@ -66,6 +67,13 @@ export function DataTable<T>({
           </tbody>
         </table>
       </div>
+  );
+
+  if (noCard) return content;
+
+  return (
+    <Card className="overflow-hidden">
+      {content}
     </Card>
   );
 }

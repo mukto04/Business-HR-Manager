@@ -10,12 +10,13 @@ import { useAsyncData } from "@/modules/shared/use-async-data";
 import Link from "next/link";
 import { LoadingState } from "@/modules/shared/loading-state";
 import { ErrorState } from "@/modules/shared/error-state";
-import { formatCurrency } from "@/utils/calculations";
+import { useCurrencyFormatter } from "@/hooks/use-currency-formatter";
 import { ArrowLeft } from "lucide-react";
 
 export function SalaryHistoryClient() {
   const salaries = useAsyncData<SalaryStructure[]>("/api/salary?history=true", []);
   const [query, setQuery] = useState("");
+  const fmt = useCurrencyFormatter();
 
   const filtered = useMemo(() => {
     return salaries.data.filter((item) =>
@@ -48,12 +49,12 @@ export function SalaryHistoryClient() {
         data={filtered}
         columns={[
           { key: "employee", title: "Name", render: (row) => row.employee?.name || "-" },
-          { key: "totalSalary", title: "Total Salary", render: (row) => formatCurrency(row.totalSalary) },
-          { key: "basicSalary", title: "Basic Salary: 50%", render: (row) => formatCurrency(row.basicSalary) },
-          { key: "hra", title: "House Rent Allowance (H.R.A): 25%", render: (row) => formatCurrency(row.hra) },
-          { key: "medicalAllowance", title: "Medical Allowance (M.A): 12.5%", render: (row) => formatCurrency(row.medicalAllowance) },
-          { key: "travelAllowance", title: "Travel Allowance (T.A): 5%", render: (row) => formatCurrency(row.travelAllowance) },
-          { key: "others", title: "Others: 7.5%", render: (row) => formatCurrency(row.others) },
+          { key: "totalSalary", title: "Total Salary", render: (row) => fmt(row.totalSalary) },
+          { key: "basicSalary", title: "Basic Salary: 50%", render: (row) => fmt(row.basicSalary) },
+          { key: "hra", title: "House Rent Allowance (H.R.A): 25%", render: (row) => fmt(row.hra) },
+          { key: "medicalAllowance", title: "Medical Allowance (M.A): 12.5%", render: (row) => fmt(row.medicalAllowance) },
+          { key: "travelAllowance", title: "Travel Allowance (T.A): 5%", render: (row) => fmt(row.travelAllowance) },
+          { key: "others", title: "Others: 7.5%", render: (row) => fmt(row.others) },
           {
             key: "status",
             title: "Status",

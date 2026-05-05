@@ -4,7 +4,14 @@ import { masterPrisma } from "@/lib/prisma";
 export async function GET() {
   try {
     const content = await masterPrisma.landingPageContent.findMany();
-    return NextResponse.json(content);
+    
+    // Convert array to a section-keyed object for easier consumption
+    const keyedContent = content.reduce((acc, item) => {
+      acc[item.section] = item.content;
+      return acc;
+    }, {} as Record<string, any>);
+    
+    return NextResponse.json(keyedContent);
   } catch (error: any) {
     console.error("Super Admin Landing Fetch Error:", error);
     return NextResponse.json({ message: "Failed to fetch content" }, { status: 500 });

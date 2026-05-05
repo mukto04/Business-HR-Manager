@@ -10,7 +10,21 @@ export async function POST(request: NextRequest) {
 
     const { machineStatus, error } = await request.json();
 
-    const prisma = await getTenantPrisma();
+    const tenantSlug = request.headers.get("x-tenant-slug");
+    let prisma;
+    
+    try {
+        if (tenantSlug && !['default', 'attendance', 'undefined', ''].includes(tenantSlug)) {
+            const { getPrismaBySlug } = await import("@/lib/prisma");
+            prisma = await getPrismaBySlug(tenantSlug);
+        } else {
+            prisma = await getTenantPrisma();
+        }
+    } catch (e) {
+        // Final fallback for local development without multi-tenancy active
+        const { masterPrisma } = await import("@/lib/prisma");
+        prisma = masterPrisma;
+    }
 
     // Find the device
     const device = await prisma.attendanceDevice.findUnique({

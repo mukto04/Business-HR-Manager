@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { getTenantPrisma } from "@/lib/prisma";
+import { calculateAttendanceStatus, syncLeaveBalanceForAttendance } from "@/lib/attendance-utils";
+import { createNotification } from "@/lib/notify";
 
 export async function PATCH(
   request: Request,
@@ -28,53 +30,71 @@ export async function PATCH(
     });
 
     if (status === "APPROVED") {
-      // Fetch tenant settings to get the HR configured average request time bounding
-      const settings = await (await getTenantPrisma()).tenantSettings.findFirst();
+      const prisma = await getTenantPrisma();
+      
+      const settings = await prisma.tenantSettings.findFirst();
       
       let checkInDate = attendanceRequest.checkIn;
       let checkOutDate = attendanceRequest.checkOut;
 
-      if (settings && attendanceRequest.date) {
-        // Enforce the HR default bounds rather than employee submitted if configured
-        const reqDate = new Date(attendanceRequest.date);
-        
-        const inParts = settings.avgRequestTime.split(":");
-        if (inParts.length === 2) {
-           checkInDate = new Date(reqDate.getFullYear(), reqDate.getMonth(), reqDate.getDate(), parseInt(inParts[0]), parseInt(inParts[1]), 0);
-        }
+      // We only use defaults if BOTH checkIn and checkOut are missing (which shouldn't happen)
+      // or if we want to support 'partial' requests without defaults.
+      // The previous code was forcing defaults which overrode the user's manual request.
 
-        const outParts = settings.defaultOutTime.split(":");
-        if (outParts.length === 2) {
-           checkOutDate = new Date(reqDate.getFullYear(), reqDate.getMonth(), reqDate.getDate(), parseInt(outParts[0]), parseInt(outParts[1]), 0);
-        }
-      }
+      const threshold = settings?.halfDayThreshold || 420;
+      const finalStatus = calculateAttendanceStatus(checkInDate, checkOutDate, threshold);
 
-      // Upsert into Attendance table
-      await (await getTenantPrisma()).attendance.upsert({
-        where: {
-          employeeId_date: {
+      // Upsert into Attendance table within a transaction
+      await prisma.$transaction(async (tx) => {
+        const existing = await tx.attendance.findUnique({
+          where: {
+            employeeId_date: {
+              employeeId: attendanceRequest.employeeId,
+              date: attendanceRequest.date,
+            }
+          }
+        });
+
+        const record = await tx.attendance.upsert({
+          where: {
+            employeeId_date: {
+              employeeId: attendanceRequest.employeeId,
+              date: attendanceRequest.date,
+            }
+          },
+          update: {
+            checkIn: checkInDate,
+            checkOut: checkOutDate,
+            status: finalStatus,
+            isManual: true,
+            note: attendanceRequest.reason,
+          },
+          create: {
             employeeId: attendanceRequest.employeeId,
             date: attendanceRequest.date,
+            checkIn: checkInDate,
+            checkOut: checkOutDate,
+            status: finalStatus,
+            isManual: true,
+            note: attendanceRequest.reason,
           }
-        },
-        update: {
-          checkIn: checkInDate,
-          checkOut: checkOutDate,
-          status: "PRESENT",
-          isManual: true,
-          note: attendanceRequest.reason,
-        },
-        create: {
-          employeeId: attendanceRequest.employeeId,
-          date: attendanceRequest.date,
-          checkIn: checkInDate,
-          checkOut: checkOutDate,
-          status: "PRESENT",
-          isManual: true,
-          note: attendanceRequest.reason,
-        }
+        });
+
+        // Sync Leave
+        await syncLeaveBalanceForAttendance(tx, attendanceRequest.employeeId, existing?.status, finalStatus, attendanceRequest.date);
       });
     }
+
+    // Notify Employee
+    const dateStr = new Date(attendanceRequest.date).toLocaleDateString();
+    await createNotification({
+      employeeId: attendanceRequest.employeeId,
+      title: `Attendance Request ${status}`, // Status is APPROVED or REJECTED
+      message: status === "APPROVED" 
+        ? `Your attendance request for {date} has been approved.`
+        : `Your attendance request for {date} has been rejected.`,
+      type: "ATTENDANCE"
+    });
 
     return NextResponse.json(updatedRequest);
   } catch (error: any) {

@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { getTenantPrisma } from "@/lib/prisma";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const now = new Date();
-    const currentMonth = now.getMonth() + 1;
-    const currentYear = now.getFullYear();
+    const { searchParams } = new URL(request.url);
+    const month = searchParams.get("month") ? Number(searchParams.get("month")) : (new Date().getMonth() + 1);
+    const year = searchParams.get("year") ? Number(searchParams.get("year")) : new Date().getFullYear();
 
     // Pre-resolve Prisma client once to avoid parallel session lookups
     const prisma = await getTenantPrisma();
@@ -17,29 +17,67 @@ export async function GET() {
       }),
       prisma.holiday.findMany(),
       prisma.monthlySalary.findMany({
-        where: { month: currentMonth, year: currentYear }
+        where: { month, year }
       }),
       prisma.loan.findMany({
         where: { dueAmount: { gt: 0 } }
       }),
       prisma.officeCost.findMany({
-        where: { month: currentMonth, year: currentYear }
+        where: { month, year }
       })
     ]);
 
-    console.log(`[Dashboard Debug] Found ${employees.length} employees in tenant DB.`);
+    // Attendance Today (Relative to BDT 00:00)
+    const bdtDate = new Date(new Date().getTime() + 6 * 60 * 60 * 1000);
+    const startOfToday = new Date(Date.UTC(bdtDate.getUTCFullYear(), bdtDate.getUTCMonth(), bdtDate.getUTCDate(), -6, 0, 0, 0));
+    const endOfToday = new Date(Date.UTC(bdtDate.getUTCFullYear(), bdtDate.getUTCMonth(), bdtDate.getUTCDate(), 17, 59, 59, 999));
 
-    const birthdays = employees.filter((employee) => new Date(employee.dateOfBirth).getMonth() === now.getMonth());
-    const anniversaries = employees.filter((employee) => new Date(employee.joiningDate).getMonth() === now.getMonth());
-    const holidaysThisMonth = holidays.filter((holiday) => new Date(holiday.date).getMonth() === now.getMonth()).length;
+    const [todayAttendance, todayLeaves, settings] = await Promise.all([
+      prisma.attendance.findMany({
+        where: { date: { gte: startOfToday, lte: endOfToday } }
+      }),
+      prisma.leaveRecord.findMany({
+        where: {
+          OR: [
+            { date: { gte: startOfToday, lte: endOfToday } },
+            { AND: [{ date: { lte: startOfToday } }, { toDate: { gte: startOfToday } }] }
+          ]
+        }
+      }),
+      prisma.tenantSettings.findFirst()
+    ]);
+
+    // Parse defaultInTime (e.g. "09:00 AM")
+    const parseTimeToMinutes = (timeStr: string) => {
+      const [time, modifier] = timeStr.split(" ");
+      let [hours, minutes] = time.split(":").map(Number);
+      if (modifier === "PM" && hours < 12) hours += 12;
+      if (modifier === "AM" && hours === 12) hours = 0;
+      return hours * 60 + minutes;
+    };
+
+    const defaultInTimeStr = settings?.defaultInTime || "09:00 AM";
+    const inTimeMinutes = parseTimeToMinutes(defaultInTimeStr);
+    const lateThresholdMinutes = inTimeMinutes + 60; // 1 hour buffer
+
+    const lateCount = todayAttendance.filter(a => {
+      if (!a.checkIn) return false;
+      // Convert UTC checkIn to BDT for comparison
+      const bdtCheckIn = new Date(new Date(a.checkIn).getTime() + 6 * 60 * 60 * 1000);
+      const checkInMinutes = bdtCheckIn.getUTCHours() * 60 + bdtCheckIn.getUTCMinutes();
+      return checkInMinutes > lateThresholdMinutes;
+    }).length;
+
+    const presentCount = todayAttendance.filter(a => ["PRESENT", "LATE", "HALF_DAY"].includes(a.status) || a.checkIn).length;
+    const onLeaveCount = todayLeaves.length;
+    const absentCount = Math.max(0, employees.length - (presentCount + onLeaveCount));
+
+    const birthdays = employees.filter((employee) => new Date(employee.dateOfBirth).getMonth() === (month - 1));
+    const anniversaries = employees.filter((employee) => new Date(employee.joiningDate).getMonth() === (month - 1));
+    const holidaysThisMonth = holidays.filter((holiday) => new Date(holiday.date).getMonth() === (month - 1) && new Date(holiday.date).getFullYear() === year).length;
     
-    // Total running month payable salary
     const salaryExpenseSummary = monthlySalaries.reduce((sum, item) => sum + item.payableSalary, 0);
-    
-    // Pending loans where due amount > 0
     const pendingLoans = loans.reduce((sum, item) => sum + item.dueAmount, 0);
-
-    // Office cost for current month
     const currentMonthOfficeCost = officeCosts.reduce((sum, item) => {
       return sum + item.bazarCost + item.extraCost + item.recurringCost + item.capitalCost;
     }, 0);
@@ -59,7 +97,13 @@ export async function GET() {
         { name: "Salary", amount: salaryExpenseSummary },
         { name: "Off. Cost", amount: currentMonthOfficeCost },
         { name: "Loans", amount: pendingLoans }
-      ]
+      ],
+      attendanceToday: {
+        present: presentCount,
+        absent: absentCount,
+        late: lateCount,
+        onLeave: onLeaveCount
+      }
     });
   } catch (error: any) {
     console.error("Dashboard API Error:", error.message);

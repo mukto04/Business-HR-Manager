@@ -31,7 +31,7 @@ export async function getTenantSlug() {
     throw new Error("No active session.");
   }
 
-  const secretStr = process.env.SESSION_SECRET || "appdevs-hr-portal-secure-vault-998877";
+  const secretStr = process.env.SESSION_SECRET || "fallback-secret";
   const secret = new TextEncoder().encode(secretStr);
   const { payload } = await jose.jwtVerify(token, secret);
   
@@ -79,30 +79,21 @@ export async function getTenantPrisma() {
       throw new Error("ACCOUNT_FROZEN: Your subscription has expired or this account has been frozen by the administrator.");
     }
 
-    // In production (Vercel), avoid global caching of PrismaClient instances
-    if (process.env.NODE_ENV === "production") {
-      const client = new PrismaClient({
-        datasources: { db: { url: dbUrl } },
-        log: ["error"],
-      });
-      
-      // Temporary Diagnostic: Try to list some data or log connection success
-      console.log(`[Prisma Diagnostic] Successfully initialized client for ${dbName}`);
-      
-      return client;
-    }
-
-    // In development, use cached client
+    // Use cached client if available (Works in both dev and production serverless)
     if (globalForPrisma.tenantClients.has(dbUrl)) {
       return globalForPrisma.tenantClients.get(dbUrl)!;
     }
 
+    // Initialize new client
     const client = new PrismaClient({
       datasources: { db: { url: dbUrl } },
       log: ["error"],
     });
 
+    // Store in cache
     globalForPrisma.tenantClients.set(dbUrl, client);
+    
+    console.log(`[Prisma Cache] Initialized new client for ${dbName}`);
     return client;
   } catch (error: any) {
     console.error("Prisma Multi-Tenant Routing Error:", error.message);
@@ -128,13 +119,6 @@ export async function getPrismaBySlug(slug: string) {
 
   const dbUrl = tenantRecord.dbUrl;
   
-  if (process.env.NODE_ENV === "production") {
-    return new PrismaClient({
-      datasources: { db: { url: dbUrl } },
-      log: ["error"],
-    });
-  }
-
   if (globalForPrisma.tenantClients.has(dbUrl)) {
     return globalForPrisma.tenantClients.get(dbUrl)!;
   }

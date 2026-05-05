@@ -30,14 +30,17 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ id:
         guardianPhone: employeeData.guardianPhone || null,
         nidNumber: employeeData.nidNumber || null,
         educationStatus: employeeData.educationStatus || null,
+        customData: employeeData.customData || {},
         ...(statusOverride ? { status: statusOverride } : {})
       }
     });
 
     if (salary !== undefined && salary > 0) {
-      const salaryBreakdown = calculateSalaryBreakdown(salary);
+      const prisma = await getTenantPrisma();
+      const settings = await prisma.tenantSettings.findFirst();
+      const salaryBreakdown = calculateSalaryBreakdown(salary, settings?.salaryStructure as any[] | undefined);
 
-      await (await getTenantPrisma()).salaryStructure.upsert({
+      await prisma.salaryStructure.upsert({
         where: { employeeId: id },
         create: {
           employeeId: id,

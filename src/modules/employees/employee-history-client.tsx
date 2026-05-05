@@ -14,11 +14,13 @@ import { ErrorState } from "@/modules/shared/error-state";
 import { useRouter } from "next/navigation";
 import { useDialog } from "@/components/ui/dialog-provider";
 import { RotateCcw, ArrowLeft, Users, UserCheck, UserX } from "lucide-react";
+import { useGlobalSettings } from "@/components/providers/global-settings-provider";
 
 export function EmployeeHistoryClient() {
   const router = useRouter();
   const [v] = useState(Date.now());
   const { data: allData, loading, error, refresh } = useAsyncData<Employee[]>(`/api/employees?all=true&t=${v}`, []);
+  const { currencySymbol } = useGlobalSettings();
 
   const [query, setQuery] = useState("");
   const dialog = useDialog();
@@ -115,7 +117,7 @@ export function EmployeeHistoryClient() {
       render: (row: Employee) => (
         <div className="space-y-2 min-w-[110px]">
           <div className="rounded-md bg-emerald-50 px-2 py-1 inline-block">
-            <p className="text-xs font-bold text-emerald-700">৳{row.salaryStructure?.totalSalary?.toLocaleString() ?? "—"}</p>
+            <p className="text-xs font-bold text-emerald-700">{currencySymbol}{row.salaryStructure?.totalSalary?.toLocaleString() ?? "—"}</p>
           </div>
           <div className="flex items-center gap-1">
             <span className="text-[10px] text-slate-400 font-bold uppercase">Blood:</span>

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
+import { useGlobalSettings } from "@/components/providers/global-settings-provider";
 
 interface CurrencyAmountProps {
   amount: number | string;
@@ -10,11 +11,12 @@ interface CurrencyAmountProps {
 
 export function CurrencyAmount({ amount, className = "" }: CurrencyAmountProps) {
   const [isVisible, setIsVisible] = useState(false);
+  const { currencySymbol } = useGlobalSettings();
 
   return (
     <div className={`inline-flex items-center gap-2 ${className}`}>
       <span className="font-bold">
-        ৳{isVisible ? amount : "****"}
+        {currencySymbol}{isVisible ? amount : "****"}
       </span>
       <button
         onClick={(e) => {

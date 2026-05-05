@@ -28,17 +28,50 @@ model Employee {
   educationStatus String?
   password        String            @default("appdevs123456")
   image           String?           
+  customData      Json?             // { fieldName: value }
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
   leaveBalances   LeaveBalance[]
+  leaveRecords    LeaveRecord[]
   loans           Loan[]
   advances        AdvanceSalary[]
   salaryStructure SalaryStructure?
   monthlySalaries MonthlySalary[]
   attendances     Attendance[]
   attendanceRequests AttendanceRequest[]
+  breakRecords    BreakRecord[]
+  breakRequests   BreakRequest[]
+  notifications   Notification[]
+  loanRequests    LoanRequest[]
+  advanceRequests AdvanceSalaryRequest[]
+  leaveRequests   LeaveRequest[]
   
   @@index([fingerprintId])
+}
+
+model Notice {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  title     String
+  content   String
+  image     String?
+  file      String?
+  author    String   @default("HR Department")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Notification {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  employeeId  String?  @db.ObjectId
+  title       String
+  message     String
+  type        String   @default("NOTICE") // NOTICE, SYSTEM, etc.
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  employee    Employee? @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
 }
 
 model Holiday {
@@ -54,14 +87,31 @@ model LeaveBalance {
   id         String   @id @default(auto()) @map("_id") @db.ObjectId
   employeeId String   @db.ObjectId
   year       Int
-  totalLeave Int      @default(0)
-  dueLeave   Int      @default(0)
+  totalLeave Float    @default(0)
+  dueLeave   Float    @default(0)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
   employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   @@unique([employeeId, year])
   @@index([employeeId])
+}
+
+model LeaveRecord {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  employeeId  String   @db.ObjectId
+  date        DateTime // For single day or start of range
+  toDate      DateTime? // Optional for range
+  amount      Float
+  type        String   @default("DEDUCTION") // DEDUCTION, REFUND
+  category    String   @default("MANUAL") // MANUAL, AUTOMATIC (Half-Day)
+  note        String?
+  year        Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId, year])
 }
 
 model Loan {
@@ -106,6 +156,7 @@ model SalaryStructure {
   travelAllowance  Float
   others           Float
   festivalBonus    Float
+  breakdown        Json?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
   employee         Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
@@ -132,6 +183,7 @@ model MonthlySalary {
   totalSalaryPaid     Float
   isPaid              Boolean  @default(false)
   isHeld              Boolean  @default(false)
+  breakdown           Json?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
   employee            Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
@@ -209,6 +261,38 @@ model Attendance {
   @@index([date])
 }
 
+model BreakRecord {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  employeeId  String   @db.ObjectId
+  date        DateTime
+  startTime   DateTime
+  endTime     DateTime?
+  duration    Int      @default(0) // in minutes
+  note        String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId, date])
+}
+
+model BreakRequest {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  employeeId  String   @db.ObjectId
+  date        DateTime
+  startTime   DateTime
+  endTime     DateTime
+  reason      String
+  status      String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  hrNote      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+  @@index([status])
+}
+
 model AttendanceRequest {
   id          String   @id @default(auto()) @map("_id") @db.ObjectId
   employeeId  String   @db.ObjectId
@@ -216,6 +300,7 @@ model AttendanceRequest {
   checkIn     DateTime?
   checkOut    DateTime?
   reason      String
+  attachment  String?
   status      String   @default("PENDING") // PENDING, APPROVED, REJECTED
   hrNote      String?
   createdAt   DateTime @default(now())
@@ -257,13 +342,21 @@ model AttendanceDevice {
 }
 
 model TenantSettings {
-  id             String   @id @default(auto()) @map("_id") @db.ObjectId
-  defaultInTime  String   @default("09:00 AM")
-  defaultOutTime String   @default("06:00 PM")
-  avgRequestTime String   @default("09:00 AM")
-  googleSheetUrl String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  defaultInTime     String   @default("09:00 AM")
+  defaultOutTime    String   @default("06:00 PM")
+  lateThresholdTime String   @default("09:15 AM")
+  avgRequestTime    String   @default("09:00 AM")
+  googleSheetUrl    String?
+  halfDayThreshold  Int      @default(420) // in minutes
+  fullDayThreshold  Int      @default(540) // in minutes (9 hours)
+  weeklySchedule    Json?    // Array of objects { day: string, enabled: boolean, inTime: string, outTime: string }
+  salaryStructure   Json?    // { basic: 50, hra: 25, ma: 12.5, ta: 5, others: 7.5 }
+  employeeFieldsConfig Json? // { visible: string[], mandatory: string[] }
+  customFields      Json?    // Array of { id: string, label: string, type: string }
+  autoLeaveDeduction Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 }
 
 model LandingPageContent {
@@ -274,8 +367,79 @@ model LandingPageContent {
 }
 
 model MasterAdmin {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  password        String   @default("superadmin123")
+  loginTitle      String?  @default("AppDevs HR Master Access")
+  loginSub        String?  @default("Restricted to AppDevs Administrators only.")
+  country         String?  @default("Bangladesh")
+  currencySymbol  String?  @default("৳")
+  timezone        String?  @default("Asia/Dhaka")
+  language        String?  @default("en")
+  updatedAt       DateTime @updatedAt
+}
+
+
+model Note {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  password  String   @default("superadmin123")
+  title     String?
+  content   String
+  isPinned  Boolean  @default(false)
+  color     String?  @default("white")
+  order     Int      @default(0)
+  reminderAt DateTime?
+  isReminderNotified Boolean @default(false)
+  createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
+model LoanRequest {
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  employeeId       String   @db.ObjectId
+  employee         Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  requestedAmount  Float
+  installmentAmount Float?   @default(0)
+  startMonth       Int?
+  startYear        Int?
+  reason           String
+  status           String   @default("PENDING") // PENDING | APPROVED | REJECTED
+  hrNote           String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([employeeId])
+  @@index([status])
+}
+
+model AdvanceSalaryRequest {
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  employeeId       String   @db.ObjectId
+  employee         Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  requestedAmount  Float
+  month            Int
+  year             Int
+  reason           String
+  status           String   @default("PENDING")
+  hrNote           String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([employeeId])
+  @@index([status])
+}
+
+model LeaveRequest {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  employeeId String   @db.ObjectId
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  fromDate   DateTime
+  toDate     DateTime
+  days       Float
+  reason     String
+  status     String   @default("PENDING")
+  hrNote     String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([employeeId])
+  @@index([status])
+}

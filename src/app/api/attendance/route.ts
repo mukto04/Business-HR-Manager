@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getTenantPrisma } from "@/lib/prisma";
+import { calculateAttendanceStatus, syncLeaveBalanceForAttendance } from "@/lib/attendance-utils";
 
 export const dynamic = 'force-dynamic';
 
@@ -92,34 +93,76 @@ export async function POST(request: Request) {
     const parsedDate = parts.length === 3 
       ? new Date(Date.UTC(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]), -6, 0, 0, 0))
       : new Date(date);
-    // Remove parsedDate.setHours(0,0,0,0) completely
 
     const checkInDate = checkIn ? new Date(checkIn) : null;
     const checkOutDate = checkOut ? new Date(checkOut) : null;
 
-    const attendance = await (await getTenantPrisma()).attendance.upsert({
-      where: {
-        employeeId_date: {
+    const prisma = await getTenantPrisma();
+
+    const attendance = await prisma.$transaction(async (tx) => {
+      // 1. Get existing record and settings
+      const existing = await tx.attendance.findUnique({
+        where: {
+          employeeId_date: {
+            employeeId,
+            date: parsedDate,
+          }
+        }
+      });
+
+      const settings = await tx.tenantSettings.findFirst();
+      const threshold = settings?.halfDayThreshold || 420;
+      const lateThresholdTime = settings?.lateThresholdTime;
+      const weeklySchedule = settings?.weeklySchedule as any[];
+      const defaultInTime = settings?.defaultInTime;
+
+      // 2. Determine new status
+      let finalStatus = status;
+      // If we have times, we should calculate the status automatically unless it's a specific manual override like "HALF_DAY" that the user chose
+      // But usually, if they set times, they want the system to determine if it's LATE or PRESENT
+      if (checkInDate && checkOutDate) {
+        finalStatus = calculateAttendanceStatus(
+          checkInDate, 
+          checkOutDate, 
+          threshold, 
+          lateThresholdTime,
+          weeklySchedule,
+          defaultInTime
+        );
+      } else if (!status) {
+        finalStatus = "ABSENT";
+      }
+
+      // 3. Upsert attendance
+      const record = await tx.attendance.upsert({
+        where: {
+          employeeId_date: {
+            employeeId,
+            date: parsedDate,
+          }
+        },
+        update: {
+          checkIn: checkInDate,
+          checkOut: checkOutDate,
+          status: finalStatus,
+          isManual: isManual !== undefined ? isManual : true,
+          note,
+        },
+        create: {
           employeeId,
           date: parsedDate,
+          checkIn: checkInDate,
+          checkOut: checkOutDate,
+          status: finalStatus,
+          isManual: isManual !== undefined ? isManual : true,
+          note,
         }
-      },
-      update: {
-        checkIn: checkInDate,
-        checkOut: checkOutDate,
-        status: status || "PRESENT",
-        isManual: isManual !== undefined ? isManual : true,
-        note,
-      },
-      create: {
-        employeeId,
-        date: parsedDate,
-        checkIn: checkInDate,
-        checkOut: checkOutDate,
-        status: status || "PRESENT",
-        isManual: isManual !== undefined ? isManual : true,
-        note,
-      }
+      });
+
+      // 4. Sync Leave Balance
+      await syncLeaveBalanceForAttendance(tx, employeeId, existing?.status, finalStatus, parsedDate);
+
+      return record;
     });
 
     return NextResponse.json(attendance);

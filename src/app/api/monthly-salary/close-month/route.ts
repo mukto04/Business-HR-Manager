@@ -15,20 +15,21 @@ export async function POST(request: NextRequest) {
     const nextYear = month === 12 ? year + 1 : year;
 
     await (await getTenantPrisma()).$transaction(async (tx) => {
-      // Get all monthly salary records for this month
-      const monthlySalaries = await tx.monthlySalary.findMany({
-        where: { month, year },
+      // Get all active employees to ensure everyone is processed for next month
+      const allActiveEmployees = await tx.employee.findMany({
+        where: { status: "ACTIVE" },
         include: {
-          employee: {
-            include: {
-              salaryStructure: true,
-              leaveBalances: true,
-            }
+          salaryStructure: true,
+          leaveBalances: true,
+          monthlySalaries: {
+            where: { month, year }
           }
         }
       });
 
-      for (const ms of monthlySalaries) {
+      for (const emp of allActiveEmployees) {
+        // Find existing record for current month if any (for deductions logic)
+        const ms = emp.monthlySalaries[0];
         // IDEMPOTENCY GUARD: 
         // 5. Check if next month salary record already exists
         const nextMonthRecord = await tx.monthlySalary.findUnique({
@@ -39,7 +40,7 @@ export async function POST(request: NextRequest) {
         // to avoid duplicate deductions or duplicate record creation.
         if (nextMonthRecord) continue;
 
-        if (!ms.isHeld) {
+        if (ms && !ms.isHeld) {
           // 1. Mark as paid (force flag to true if it wasn't already)
           await tx.monthlySalary.update({
             where: { id: ms.id },
@@ -79,16 +80,16 @@ export async function POST(request: NextRequest) {
           }
 
           // 3. Mark advance salaries as deducted
-          if (ms.advanceSalaryAmount > 0) {
+          if (ms && ms.advanceSalaryAmount > 0) {
             await tx.advanceSalary.updateMany({
-              where: { employeeId: ms.employeeId, month, year, isDeducted: false },
+              where: { employeeId: emp.id, month, year, isDeducted: false },
               data: { isDeducted: true }
             });
           }
         }
 
         // 4. Reset negative leave balances back to 0 for this year
-        const leaveBalance = ms.employee?.leaveBalances?.find(lb => lb.year === year);
+        const leaveBalance = emp.leaveBalances?.find(lb => lb.year === year);
         if (leaveBalance && leaveBalance.dueLeave < 0) {
           await tx.leaveBalance.update({
             where: { id: leaveBalance.id },
@@ -97,9 +98,10 @@ export async function POST(request: NextRequest) {
         }
 
         // 5. Create next month salary record
-        if (ms.employee?.salaryStructure) {
-          const totalSalary = ms.employee.salaryStructure.totalSalary;
-          const { festivalBonus, ...breakdown } = calculateSalaryBreakdown(totalSalary);
+        if (emp.salaryStructure) {
+          const totalSalary = emp.salaryStructure.totalSalary;
+          const settings = await tx.tenantSettings.findFirst();
+          const { festivalBonus, ...breakdown } = calculateSalaryBreakdown(totalSalary, settings?.salaryStructure as any[] | undefined);
           const workingDaySalary = (totalSalary / 30) * 30;
 
           // Check advance salary for next month
@@ -127,12 +129,12 @@ export async function POST(request: NextRequest) {
 
           await tx.monthlySalary.create({
             data: {
-              employeeId: ms.employeeId,
+              employeeId: emp.id,
               month: nextMonth,
               year: nextYear,
               totalSalary,
               ...breakdown,
-              festivalBonus: ms.employee.salaryStructure.festivalBonus || 0,
+              festivalBonus: emp.salaryStructure.festivalBonus || 0,
               workingDays: 30,
               workingDaySalary,
               advanceSalaryAmount: nextAdvanceAmount,

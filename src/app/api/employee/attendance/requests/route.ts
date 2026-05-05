@@ -27,10 +27,22 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { date, checkIn, checkOut, reason } = await request.json();
+    const { date, checkIn, checkOut, reason, attachment } = await request.json();
 
     if (!date || !reason) {
       return NextResponse.json({ message: "Date and Reason are required" }, { status: 400 });
+    }
+
+    if (!checkIn && !checkOut) {
+      return NextResponse.json({ message: "At least one time (Check-In or Check-Out) is required" }, { status: 400 });
+    }
+
+    if (checkIn && checkOut) {
+      const ci = new Date(checkIn);
+      const co = new Date(checkOut);
+      if (co <= ci) {
+        return NextResponse.json({ message: "Check-out time must be after check-in time" }, { status: 400 });
+      }
     }
 
     const newRequest = await (await getTenantPrisma()).attendanceRequest.create({
@@ -40,9 +52,19 @@ export async function POST(request: NextRequest) {
         checkIn: checkIn ? new Date(checkIn) : null,
         checkOut: checkOut ? new Date(checkOut) : null,
         reason,
+        attachment: attachment || null,
         status: "PENDING",
       },
+      include: { employee: true }
     });
+
+    // Notify HR
+    const { createNotification } = await import("@/lib/notify");
+    await createNotification({
+      title: "New Attendance Request",
+      message: `${newRequest.employee?.name || 'An employee'} submitted an attendance request for ${new Date(date).toLocaleDateString()}. Reason: ${reason}`,
+      type: "ATTENDANCE"
+    }); // No employeeId means it goes to HR
 
     return NextResponse.json(newRequest, { status: 201 });
   } catch (error) {

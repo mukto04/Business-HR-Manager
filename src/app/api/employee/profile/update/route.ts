@@ -1,16 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTenantPrisma } from "@/lib/prisma";
 import { getEmployeeSession } from "@/lib/employee-auth";
+import { createNotification } from "@/lib/notify";
 
 export async function POST(request: NextRequest) {
-  const session = await getEmployeeSession();
-  const employeeId = session?.employeeId as string;
-  
-  if (!employeeId) {
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
-  }
-
   try {
+    const session = await getEmployeeSession();
+    const employeeId = session?.employeeId as string;
+    
+    if (!employeeId) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    }
+
     const { image } = await request.json();
 
     if (!image) {
@@ -22,6 +23,13 @@ export async function POST(request: NextRequest) {
     await prisma.employee.update({
       where: { id: employeeId },
       data: { image }
+    });
+    // Notify employee about profile picture update
+    await createNotification({
+      employeeId,
+      title: "Profile Picture Updated",
+      message: "Your profile picture has been successfully updated.",
+      type: "PROFILE"
     });
 
     return NextResponse.json({ message: "Profile picture updated successfully!" });

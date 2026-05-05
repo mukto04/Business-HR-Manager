@@ -1,390 +1,423 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { format } from "date-fns";
-import { CalendarDays, Clock, ChevronLeft, ChevronRight, Activity, ClockIcon, UserX, Plus, MessageSquare, Edit2 } from "lucide-react";
-import { Modal } from "@/components/ui/modal";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { format, startOfMonth, endOfMonth, addMonths, subMonths } from "date-fns";
+import { 
+  ChevronLeft, 
+  ChevronRight, 
+  Activity, 
+  UserX, 
+  Clock as ClockIcon, 
+  CalendarDays,
+  Edit2,
+  AlertCircle
+} from "lucide-react";
 
-export default function EmployeeAttendancePage() {
+import { Modal } from "@/components/ui/modal";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { useTranslation } from "@/hooks/use-translation";
+
+export default function EmployeeAttendance() {
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [data, setData] = useState<any>({ summary: null, records: [] });
+  const [records, setRecords] = useState([]);
+  const [summary, setSummary] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [requests, setRequests] = useState<any[]>([]);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [formData, setFormData] = useState({
-    date: format(new Date(), "yyyy-MM-dd"),
-    checkIn: "09:00",
-    checkOut: "18:30",
-    reason: ""
+  const { t } = useTranslation();
+
+  // Modal State
+  const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
+  const [selectedRecord, setSelectedRecord] = useState<any>(null);
+  const [requestForm, setRequestForm] = useState({
+    checkIn: "",
+    checkOut: "",
+    reason: "",
+    attachment: ""
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
+    fetchAttendance();
+    fetchRequests();
+  }, [currentDate]);
+
+  const fetchAttendance = async () => {
+    setLoading(true);
     const month = currentDate.getMonth() + 1;
     const year = currentDate.getFullYear();
-    setLoading(true);
-
-    fetch(`/api/employee/attendance?month=${month}&year=${year}`)
-      .then(res => res.json())
-      .then(result => {
-        setData(result);
-        setLoading(false);
-      });
-  }, [currentDate]);
+    
+    try {
+      const res = await fetch(`/api/employee/attendance?month=${month}&year=${year}`);
+      const data = await res.json();
+      setRecords(data.records || []);
+      setSummary(data.summary || null);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const fetchRequests = async () => {
     try {
-      const res = await fetch("/api/employee/attendance-requests");
+      const res = await fetch("/api/employee/attendance/requests");
       const data = await res.json();
-      setRequests(data);
-    } catch (error) {
-      console.error("Failed to fetch requests:", error);
+      setRequests(data || []);
+    } catch (err) {
+      console.error(err);
     }
   };
 
-  useEffect(() => {
-    fetchRequests();
-  }, []);
+  const handlePrevMonth = () => setCurrentDate(subMonths(currentDate, 1));
+  const handleNextMonth = () => setCurrentDate(addMonths(currentDate, 1));
+
+  const openRequestModal = (record: any) => {
+    setSelectedRecord(record);
+    setRequestForm({
+      checkIn: record.checkIn ? format(new Date(record.checkIn), "HH:mm") : "",
+      checkOut: record.checkOut ? format(new Date(record.checkOut), "HH:mm") : "",
+      reason: "",
+      attachment: ""
+    });
+    setFormError(null);
+    setIsRequestModalOpen(true);
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) {
+        setFormError(t("File size must be less than 2MB"));
+        return;
+      }
+      setFormError(null);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setRequestForm(prev => ({ ...prev, attachment: reader.result as string }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleSubmitRequest = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitting(true);
+    if (!selectedRecord) return;
+    
+    setIsSubmitting(true);
     try {
-      const dateParts = formData.date.split("-");
-      const checkInParts = formData.checkIn.split(":");
-      const checkOutParts = formData.checkOut.split(":");
+      // Create proper datetime strings based on the record's date and the time inputs
+      const recordDate = format(new Date(selectedRecord.date), "yyyy-MM-dd");
+      
+      let checkInDate = null;
+      if (requestForm.checkIn) {
+        checkInDate = new Date(`${recordDate}T${requestForm.checkIn}:00`);
+      }
+      
+      let checkOutDate = null;
+      if (requestForm.checkOut) {
+        checkOutDate = new Date(`${recordDate}T${requestForm.checkOut}:00`);
+      }
 
-      const checkInDate = new Date(
-        parseInt(dateParts[0]),
-        parseInt(dateParts[1]) - 1,
-        parseInt(dateParts[2]),
-        parseInt(checkInParts[0]),
-        parseInt(checkInParts[1])
-      );
+      if (!checkInDate && !checkOutDate) {
+        setFormError(t("Please provide at least one time (Check-In or Check-Out)."));
+        setIsSubmitting(false);
+        return;
+      }
 
-      const checkOutDate = new Date(
-        parseInt(dateParts[0]),
-        parseInt(dateParts[1]) - 1,
-        parseInt(dateParts[2]),
-        parseInt(checkOutParts[0]),
-        parseInt(checkOutParts[1])
-      );
+      if (checkInDate && checkOutDate && checkOutDate <= checkInDate) {
+        setFormError(t("Check-out time must be after check-in time."));
+        setIsSubmitting(false);
+        return;
+      }
 
-      const res = await fetch("/api/employee/attendance-requests", {
+      const res = await fetch("/api/employee/attendance/requests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          date: new Date(formData.date).toISOString(),
-          checkIn: checkInDate.toISOString(),
-          checkOut: checkOutDate.toISOString(),
-          reason: formData.reason,
-        }),
+          date: selectedRecord.date,
+          checkIn: checkInDate?.toISOString() || null,
+          checkOut: checkOutDate?.toISOString() || null,
+          reason: requestForm.reason,
+          attachment: requestForm.attachment || null
+        })
       });
 
       if (res.ok) {
-        setIsModalOpen(false);
-        setFormData({ ...formData, reason: "" });
-        fetchRequests();
+        setIsRequestModalOpen(false);
+        fetchRequests(); // Refresh requests
       } else {
         const err = await res.json();
-        alert(err.message || "Failed to submit request");
+        setFormError(t(err.message || "Failed to submit request"));
       }
-    } catch (error) {
-      console.error(error);
-      alert("An error occurred. Please try again.");
+    } catch (err) {
+      console.error(err);
+      setFormError(t("An error occurred"));
     } finally {
-      setSubmitting(false);
+      setIsSubmitting(false);
     }
   };
 
-  const handlePrevMonth = () => {
-    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
-  };
-
-  const handleNextMonth = () => {
-    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
-  };
-
-  const openRequestModal = (dateStr: string) => {
-    setFormData({
-      ...formData,
-      date: format(new Date(dateStr), "yyyy-MM-dd"),
-      reason: ""
-    });
-    setIsModalOpen(true);
-  };
-
-  const summary = data.summary || {};
-  const records = data.records || [];
-
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">My Attendance</h1>
-          <p className="text-slate-500">Track your daily punch records and averages</p>
+    <div className="space-y-10 pb-20 animate-in fade-in duration-700">
+      {/* Header & Controls */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+        <div className="space-y-1">
+          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">{t("Attendance Logs")}</h1>
+          <p className="text-slate-500 font-medium text-sm">{t("Review your daily records and synchronization status.")}</p>
         </div>
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="flex items-center gap-4 bg-slate-50 p-2 rounded-2xl border border-slate-100">
-            <button onClick={handlePrevMonth} className="p-2 hover:bg-white rounded-xl transition shadow-sm">
-              <ChevronLeft className="h-5 w-5 text-slate-600" />
-            </button>
-            <span className="font-semibold text-slate-700 min-w-[120px] text-center">
-              {format(currentDate, "MMMM yyyy")}
-            </span>
-            <button onClick={handleNextMonth} className="p-2 hover:bg-white rounded-xl transition shadow-sm">
-              <ChevronRight className="h-5 w-5 text-slate-600" />
-            </button>
-          </div>
+        <div className="flex items-center gap-2 bg-white p-2 rounded-2xl border border-slate-200 shadow-sm shrink-0">
+          <button 
+            onClick={handlePrevMonth} 
+            className="h-9 w-9 flex items-center justify-center hover:bg-slate-50 rounded-xl transition-all group"
+          >
+            <ChevronLeft size={18} className="text-slate-400 group-hover:text-indigo-600" />
+          </button>
+          <span className="font-bold text-slate-700 px-4 text-[13px] uppercase tracking-widest min-w-[140px] text-center">
+            {t(format(currentDate, "MMMM"))} {format(currentDate, "yyyy")}
+          </span>
+          <button 
+            onClick={handleNextMonth} 
+            className="h-9 w-9 flex items-center justify-center hover:bg-slate-50 rounded-xl transition-all group"
+          >
+            <ChevronRight size={18} className="text-slate-400 group-hover:text-indigo-600" />
+          </button>
         </div>
       </div>
 
+      {/* Summary Cards */}
       {!loading && summary && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4">
-            <div className="p-3 bg-emerald-100 text-emerald-600 rounded-xl"><Activity className="h-5 w-5" /></div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-5">
+            <div className="h-12 w-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center shrink-0">
+              <Activity size={24} strokeWidth={1.5} />
+            </div>
             <div>
-              <p className="text-sm text-slate-500">Total Present</p>
-              <p className="text-xl font-bold text-slate-800">{summary.presentCount}</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1.5">{t("Present")}</p>
+              <p className="text-xl font-bold text-slate-900 leading-none">{summary.presentCount} <span className="text-[10px] text-slate-400 font-medium lowercase">{t("days")}</span></p>
             </div>
           </div>
-          <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4">
-            <div className="p-3 bg-red-100 text-red-600 rounded-xl"><UserX className="h-5 w-5" /></div>
+          <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-5">
+            <div className="h-12 w-12 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center shrink-0">
+              <UserX size={24} strokeWidth={1.5} />
+            </div>
             <div>
-              <p className="text-sm text-slate-500">Total Absent</p>
-              <p className="text-xl font-bold text-slate-800">{summary.absentCount}</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1.5">{t("Absent")}</p>
+              <p className="text-xl font-bold text-slate-900 leading-none">{summary.absentCount} <span className="text-[10px] text-slate-400 font-medium lowercase">{t("days")}</span></p>
             </div>
           </div>
-          <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4">
-            <div className="p-3 bg-indigo-100 text-indigo-600 rounded-xl"><ClockIcon className="h-5 w-5" /></div>
+          <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-5">
+            <div className="h-12 w-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center shrink-0">
+              <ClockIcon size={24} strokeWidth={1.5} />
+            </div>
             <div>
-              <p className="text-sm text-slate-500">Avg. Working Time</p>
-              <p className="text-xl font-bold text-slate-800">{summary.avgWorkingHours}</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1.5">{t("Avg. Hours")}</p>
+              <p className="text-xl font-bold text-slate-900 leading-none">{summary.avgWorkingHours} <span className="text-[10px] text-slate-400 font-medium lowercase">{t("hrs")}</span></p>
             </div>
           </div>
-          <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4">
-            <div className="p-3 bg-slate-100 text-slate-600 rounded-xl"><Activity className="h-5 w-5" /></div>
+          <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-5">
+            <div className="h-12 w-12 bg-slate-50 text-slate-600 rounded-2xl flex items-center justify-center shrink-0">
+              <Activity size={24} strokeWidth={1.5} />
+            </div>
             <div>
-              <p className="text-sm text-slate-500">Req. Working Time</p>
-              <p className="text-xl font-bold text-slate-800">{summary.reqWorkingTime || "09:00"} <span className="text-sm font-normal text-slate-500">Hours</span></p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1.5">{t("Target")}</p>
+              <p className="text-xl font-bold text-slate-900 leading-none">{summary.reqWorkingTime || "09:00"} <span className="text-[10px] text-slate-400 font-medium lowercase">{t("hrs")}</span></p>
             </div>
           </div>
         </div>
       )}
 
-      <div className="space-y-4">
-        <h2 className="text-xl font-bold text-slate-800 ml-1 flex items-center gap-2">
-          <Activity className="h-5 w-5 text-brand-600" /> Recent Daily Records
-        </h2>
-        <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
-          {loading ? (
-            <div className="animate-pulse p-6 space-y-4">
-              {[1, 2, 3, 4, 5].map(i => <div key={i} className="h-16 bg-slate-100 rounded-2xl" />)}
-            </div>
-          ) : records.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-slate-50/50 border-b border-slate-100">
-                    <th className="py-4 px-6 font-semibold text-slate-600 text-sm">Date</th>
-                    <th className="py-4 px-6 font-semibold text-slate-600 text-sm">Status</th>
-                    <th className="py-4 px-6 font-semibold text-slate-600 text-sm">Check In</th>
-                    <th className="py-4 px-6 font-semibold text-slate-600 text-sm">Check Out</th>
-                    <th className="py-4 px-6 font-semibold text-slate-600 text-sm">Note</th>
-                    <th className="py-4 px-6 font-semibold text-slate-600 text-sm text-center">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {records.map((record: any) => {
-                    const isUpcoming = record.status === "UPCOMING";
-                    const isWeekendOrHoliday = ["WEEKEND", "HOLIDAY"].includes(record.status);
-                    const isMissingPunches = record.status === "PRESENT" && (!record.checkIn || !record.checkOut);
-                    const isAbsent = record.status === "ABSENT";
-                    
-                    const hasPendingOrApprovedRequest = requests.some(req => 
-                      format(new Date(req.date), "yyyy-MM-dd") === format(new Date(record.date), "yyyy-MM-dd") &&
-                      (req.status === "PENDING" || req.status === "APPROVED")
-                    );
-
-                    const canRequest = !isUpcoming && !isWeekendOrHoliday && (isAbsent || isMissingPunches) && !hasPendingOrApprovedRequest;
-
-                    return (
-                      <tr key={record.id} className="hover:bg-slate-50/50 transition">
-                        <td className="py-4 px-6">
-                          <div className="flex items-center font-medium text-slate-800">
-                            <CalendarDays className="h-4 w-4 mr-2 text-indigo-400" />
-                            {format(new Date(record.date), "dd MMM, yyyy")}
-                            <span className="ml-2 text-xs text-slate-400 font-normal">
-                              {format(new Date(record.date), "EEE")}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="py-4 px-6">
-                          <span className={`inline-flex px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
-                            record.status === "PRESENT" ? "bg-emerald-100 text-emerald-700" :
-                            record.status === "ABSENT" ? "bg-red-100 text-red-700" :
-                            record.status === "LATE" ? "bg-amber-100 text-amber-700" :
-                            record.status === "WEEKEND" ? "bg-slate-800 text-slate-200" :
-                            record.status === "HOLIDAY" ? "bg-purple-100 text-purple-700" :
-                            "bg-slate-100 text-slate-500"
-                          }`}>
-                            {record.status}
-                          </span>
-                        </td>
-                        <td className="py-4 px-6">
-                          {record.checkIn ? (
-                            <div className="flex items-center text-slate-600">
-                              <Clock className="h-4 w-4 mr-2 text-slate-400" />
-                              {format(new Date(record.checkIn), "hh:mm a")}
-                            </div>
-                          ) : <span className="text-slate-300">-</span>}
-                        </td>
-                        <td className="py-4 px-6">
-                          {record.checkOut ? (
-                            <div className="flex items-center text-slate-600">
-                              <Clock className="h-4 w-4 mr-2 text-slate-400" />
-                              {format(new Date(record.checkOut), "hh:mm a")}
-                            </div>
-                          ) : <span className="text-slate-300">-</span>}
-                        </td>
-                        <td className="py-4 px-6 text-slate-500 text-sm">
-                          {record.note || "-"}
-                        </td>
-                        <td className="py-4 px-6 text-center">
-                          {canRequest && (
-                            <button 
-                              onClick={() => openRequestModal(record.date)}
-                              className="p-2 hover:bg-brand-50 text-slate-400 hover:text-brand-600 rounded-lg transition-all shadow-sm border border-transparent hover:border-brand-100"
-                              title="Request Manual Attendance"
-                            >
-                              <Edit2 className="h-4 w-4" />
-                            </button>
-                          )}
-                          {hasPendingOrApprovedRequest && (
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter italic">
-                              Requested
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div className="p-12 text-center text-slate-500">
-              No attendance records found for this month.
-            </div>
-          )}
+      {/* Ledger Table */}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+        <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/30">
+           <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+              <Activity size={18} className="text-indigo-600" strokeWidth={2} /> 
+              {t("Monthly Performance Ledger")}
+           </h2>
         </div>
-      </div>
+        
+        {loading ? (
+          <div className="animate-pulse p-10 space-y-4">
+            {[1, 2, 3, 4, 5, 6].map(i => <div key={i} className="h-14 bg-slate-50 rounded-2xl" />)}
+          </div>
+        ) : records.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50/50">
+                  <th className="py-5 px-8 font-bold text-slate-400 text-[10px] uppercase tracking-widest">{t("Date & Day")}</th>
+                  <th className="py-5 px-8 font-bold text-slate-400 text-[10px] uppercase tracking-widest">{t("Verification Status")}</th>
+                  <th className="py-5 px-8 font-bold text-slate-400 text-[10px] uppercase tracking-widest">{t("Check In")}</th>
+                  <th className="py-5 px-8 font-bold text-slate-400 text-[10px] uppercase tracking-widest">{t("Check Out")}</th>
+                  <th className="py-5 px-8 font-bold text-slate-400 text-[10px] uppercase tracking-widest">{t("System Notes")}</th>
+                  <th className="py-5 px-8 font-bold text-slate-400 text-[10px] uppercase tracking-widest text-center">{t("Requests")}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {records.map((record: any) => {
+                  const isUpcoming = record.status === "UPCOMING";
 
-      {requests.length > 0 && (
-        <div className="space-y-4">
-          <h2 className="text-xl font-bold text-slate-800 ml-1 flex items-center gap-2">
-            <MessageSquare className="h-5 w-5 text-indigo-600" /> Manual Requests Status
-          </h2>
-          <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-slate-50/50 border-b border-slate-100">
-                    <th className="py-4 px-6 font-semibold text-slate-600 text-sm">Date</th>
-                    <th className="py-4 px-6 font-semibold text-slate-600 text-sm">Requested Times</th>
-                    <th className="py-4 px-6 font-semibold text-slate-600 text-sm">Reason</th>
-                    <th className="py-4 px-6 font-semibold text-slate-600 text-sm">Status</th>
-                    <th className="py-4 px-6 font-semibold text-slate-600 text-sm">HR Note</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {requests.map((req: any) => (
-                    <tr key={req.id} className="hover:bg-slate-50/50 transition">
-                      <td className="py-4 px-6 font-medium text-slate-800">
-                        {format(new Date(req.date), "dd MMM, yyyy")}
-                      </td>
-                      <td className="py-4 px-6 text-sm text-slate-600">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-slate-900">{req.checkIn ? format(new Date(req.checkIn), "hh:mm a") : "-"}</span>
-                          <span className="text-slate-400">to</span>
-                          <span className="font-bold text-slate-900">{req.checkOut ? format(new Date(req.checkOut), "hh:mm a") : "-"}</span>
+                  
+                  const hasPendingRequest = requests.some(req => 
+                    format(new Date(req.date), "yyyy-MM-dd") === format(new Date(record.date), "yyyy-MM-dd") &&
+                    req.status === "PENDING"
+                  );
+
+                  const canRequest = !isUpcoming && !hasPendingRequest;
+
+                  return (
+                    <tr key={record.id} className="hover:bg-slate-50/50 transition-all group">
+                      <td className="py-5 px-8">
+                        <div className="flex flex-col">
+                           <span className="font-bold text-slate-800 text-sm tracking-tight">{format(new Date(record.date), "dd")} {t(format(new Date(record.date), "MMM"))}, {format(new Date(record.date), "yyyy")}</span>
+                           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{t(format(new Date(record.date), "EEEE"))}</span>
                         </div>
                       </td>
-                      <td className="py-4 px-6 text-slate-500 text-sm max-w-xs truncate">
-                        {req.reason}
-                      </td>
-                      <td className="py-4 px-6">
-                        <span className={`inline-flex px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                          req.status === "APPROVED" ? "bg-emerald-100 text-emerald-700" :
-                          req.status === "REJECTED" ? "bg-rose-100 text-rose-700" :
-                          "bg-amber-100 text-amber-700"
+                      <td className="py-5 px-8">
+                        <span className={`inline-flex px-3 py-1 rounded-full text-[9px] font-bold uppercase tracking-widest border ${
+                          record.status === "PRESENT" ? "bg-emerald-50 text-emerald-600 border-emerald-100" :
+                          record.status === "ABSENT" ? "bg-rose-50 text-rose-600 border-rose-100" :
+                          record.status === "LATE" ? "bg-amber-50 text-amber-600 border-amber-100" :
+                          record.status === "WEEKEND" ? "bg-slate-900 text-white border-slate-900" :
+                          record.status === "HOLIDAY" ? "bg-indigo-50 text-indigo-600 border-indigo-100" :
+                          "bg-slate-100 text-slate-500 border-slate-200"
                         }`}>
-                          {req.status}
+                          {t(record.status)}
                         </span>
                       </td>
-                      <td className="py-4 px-6 text-slate-500 text-sm italic">
-                        {req.hrNote || "-"}
+                      <td className="py-5 px-8">
+                        <div className="flex items-center gap-2">
+                           <div className={`h-1.5 w-1.5 rounded-full ${record.checkIn ? "bg-emerald-500" : "bg-slate-200"}`} />
+                           <span className={`text-sm font-semibold ${record.checkIn ? "text-slate-700" : "text-slate-300 font-normal"}`}>
+                             {record.checkIn ? format(new Date(record.checkIn), "hh:mm a") : "--:--"}
+                           </span>
+                        </div>
+                      </td>
+                      <td className="py-5 px-8">
+                        <div className="flex items-center gap-2">
+                           <div className={`h-1.5 w-1.5 rounded-full ${record.checkOut ? "bg-rose-500" : "bg-slate-200"}`} />
+                           <span className={`text-sm font-semibold ${record.checkOut ? "text-slate-700" : "text-slate-300 font-normal"}`}>
+                             {record.checkOut ? format(new Date(record.checkOut), "hh:mm a") : "--:--"}
+                           </span>
+                        </div>
+                      </td>
+                      <td className="py-5 px-8">
+                        <p className="text-xs font-medium text-slate-500 truncate max-w-[150px] italic">
+                          {record.note ? t(record.note) : t("Auto Log")}
+                        </p>
+                      </td>
+                      <td className="py-5 px-8 text-center">
+                        {canRequest && (
+                          <button 
+                            onClick={() => openRequestModal(record)}
+                            className="h-8 w-8 inline-flex items-center justify-center rounded-xl bg-slate-50 text-slate-400 hover:bg-indigo-600 hover:text-white transition-all shadow-sm border border-slate-200"
+                            title={t("Request Edit")}
+                          >
+                            <Edit2 size={14} strokeWidth={2} />
+                          </button>
+                        )}
+                        {hasPendingRequest && (
+                          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-50 border border-slate-200" title={t("Request Pending")}>
+                             <div className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
+                             <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{t("Processing")}</span>
+                          </div>
+                        )}
                       </td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
-        </div>
-      )}
+        ) : (
+          <div className="p-20 text-center space-y-4">
+             <div className="h-16 w-16 rounded-2xl bg-slate-50 flex items-center justify-center mx-auto text-slate-300">
+                <CalendarDays size={32} />
+             </div>
+             <p className="text-slate-400 font-bold uppercase tracking-[0.2em] text-[10px]">{t("No attendance ledger entries found.")}</p>
+          </div>
+        )}
+      </div>
 
-      <Modal open={isModalOpen} title="Request Manual Attendance" onClose={() => setIsModalOpen(false)}>
-        <form onSubmit={handleSubmitRequest} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <Modal
+        open={isRequestModalOpen}
+        onClose={() => setIsRequestModalOpen(false)}
+        title={t("Request Attendance Correction")}
+        description={selectedRecord ? t("Submit a correction request for {date}.", { date: format(new Date(selectedRecord.date), "dd") + " " + t(format(new Date(selectedRecord.date), "MMMM")) + ", " + format(new Date(selectedRecord.date), "yyyy") }) : ""}
+      >
+        <form onSubmit={handleSubmitRequest} className="space-y-6 pt-4">
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className="text-sm font-bold text-slate-700">Date of Attendance</label>
-              <Input 
-                type="date" 
-                required 
-                value={formData.date}
-                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{t("Requested Check In")}</label>
+              <Input
+                type="time"
+                value={requestForm.checkIn}
+                onChange={(e) => setRequestForm({ ...requestForm, checkIn: e.target.value })}
+                className="h-12 rounded-xl bg-slate-50 border-slate-200 font-semibold"
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-               <div className="space-y-2">
-                 <label className="text-sm font-bold text-slate-700">Check In</label>
-                 <Input 
-                   type="time" 
-                   required
-                   value={formData.checkIn}
-                   onChange={(e) => setFormData({ ...formData, checkIn: e.target.value })}
-                 />
-               </div>
-               <div className="space-y-2">
-                 <label className="text-sm font-bold text-slate-700">Check Out</label>
-                 <Input 
-                   type="time" 
-                   required
-                   value={formData.checkOut}
-                   onChange={(e) => setFormData({ ...formData, checkOut: e.target.value })}
-                 />
-               </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{t("Requested Check Out")}</label>
+              <Input
+                type="time"
+                value={requestForm.checkOut}
+                onChange={(e) => setRequestForm({ ...requestForm, checkOut: e.target.value })}
+                className="h-12 rounded-xl bg-slate-50 border-slate-200 font-semibold"
+              />
             </div>
           </div>
+          
           <div className="space-y-2">
-            <label className="text-sm font-bold text-slate-700">Reason for Request</label>
-            <Textarea 
-              placeholder="Explain why you missed the punch (e.g., finger didn't read, out of office for meeting, etc.)"
+            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{t("Screenshot Proof (Optional)")}</label>
+            <div className="relative">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleFileUpload}
+                className="w-full text-sm text-slate-500 font-medium file:mr-4 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer bg-slate-50 border border-slate-200 rounded-xl p-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all"
+              />
+              {requestForm.attachment && (
+                <div className="mt-3 h-32 w-full sm:w-48 rounded-xl overflow-hidden border border-slate-200 bg-slate-50">
+                  <img src={requestForm.attachment} alt="Proof preview" className="h-full w-full object-cover" />
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{t("Reason for Correction")}</label>
+            <textarea
               required
-              value={formData.reason}
-              onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
+              value={requestForm.reason}
+              onChange={(e) => setRequestForm({ ...requestForm, reason: e.target.value })}
+              className="w-full min-h-[100px] p-3 rounded-xl bg-slate-50 border border-slate-200 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all resize-none"
+              placeholder={t("Explain why you are requesting this correction...")}
             />
           </div>
-          <div className="flex justify-end gap-3 pt-4 border-t border-slate-50">
-            <Button variant="ghost" type="button" onClick={() => setIsModalOpen(false)} disabled={submitting}>
-              Cancel
+
+          {formError && (
+            <div className="flex items-center gap-2.5 p-3 bg-rose-50 border border-rose-100 rounded-xl animate-in slide-in-from-top-1 duration-200">
+               <AlertCircle size={14} className="text-rose-500 shrink-0" />
+               <p className="text-[11px] font-bold text-rose-600">{formError}</p>
+            </div>
+          )}
+
+          <div className="flex gap-3 pt-2">
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white h-12 rounded-xl font-bold shadow-sm"
+            >
+              {isSubmitting ? t("Submitting Request...") : t("Submit Request")}
             </Button>
-            <Button type="submit" disabled={submitting}>
-              {submitting ? "Submitting..." : "Submit Request"}
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setIsRequestModalOpen(false)}
+              className="px-6 h-12 rounded-xl font-bold text-slate-500 hover:bg-slate-100"
+            >
+              {t("Cancel")}
             </Button>
           </div>
         </form>
