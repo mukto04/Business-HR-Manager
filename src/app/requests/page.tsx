@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { format, formatDistanceToNow } from "date-fns";
 import { 
   CreditCard, Banknote, Calendar, Check, X, Clock, 
@@ -31,7 +31,7 @@ const StatusBadge = ({ status }: { status: RequestStatus }) => {
     APPROVED: "bg-emerald-50 text-emerald-600 border-emerald-200",
     REJECTED: "bg-rose-50 text-rose-600 border-rose-200",
   };
-  const icons: Record<RequestStatus, JSX.Element> = {
+  const icons: Record<RequestStatus, React.ReactNode> = {
     PENDING: <Clock className="w-3 h-3" />,
     APPROVED: <CheckCircle2 className="w-3 h-3" />,
     REJECTED: <XCircle className="w-3 h-3" />,
