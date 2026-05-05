@@ -150,10 +150,10 @@ const DEVICE_IP = "${device.ipAddress}";
 const DEVICE_PORT = ${device.port};
 const SYNC_INTERVAL_MINUTES = 5;
 
-// Requires node-zklib package
-// Install with: npm install node-zklib axios
+// Requires zklib-js package for modern device support (like F22)
+// Install with: npm install zklib-js axios
 
-const ZKLib = require('node-zklib');
+const ZKLib = require('zklib-js');
 const axios = require('axios');
 
 async function sendHeartbeat(machineStatus = "DISCONNECTED", error = null) {
