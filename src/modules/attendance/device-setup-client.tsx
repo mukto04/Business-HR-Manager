@@ -171,12 +171,38 @@ async function sendHeartbeat(machineStatus = "DISCONNECTED", error = null) {
 }
 
 async function sync() {
-    let zkInstance = new ZKLib(DEVICE_IP, DEVICE_PORT, 25000, 4000);
+    let connected = false;
+    let zkInstance = null;
+    
+    // Auto-fallback strategies for modern devices like F22
+    const strategies = [
+        { name: "Default (No Password)", args: [DEVICE_IP, DEVICE_PORT, 25000, 4000] },
+        { name: "Password = 0 (Number)", args: [DEVICE_IP, DEVICE_PORT, 25000, 4000, 0] },
+        { name: "Password = '0' (String)", args: [DEVICE_IP, DEVICE_PORT, 25000, 4000, '0'] }
+    ];
+
+    console.log(\`[\${new Date().toLocaleString()}] Attempting connection to \${DEVICE_IP}...\`);
+
+    for (let i = 0; i < strategies.length; i++) {
+        try {
+            console.log(\`Trying Strategy \${i+1}: \${strategies[i].name}...\`);
+            zkInstance = new ZKLib(...strategies[i].args);
+            await zkInstance.createSocket();
+            connected = true;
+            console.log('✅ Connected successfully!');
+            break;
+        } catch (e) {
+            console.log(\`❌ Strategy \${i+1} failed.\`);
+        }
+    }
+
+    if (!connected) {
+        // If all fail, throw error to trigger diagnostics
+        throw new Error('Unknown Connection Error or Timeout');
+    }
+
     try {
-        console.log(\`[\${new Date().toLocaleString()}] Attempting connection to \${DEVICE_IP}...\`);
-        await zkInstance.createSocket();
-        
-        console.log('Connected! Fetching logs...');
+        console.log('Fetching logs...');
         const logs = await zkInstance.getAttendances();
         
         console.log(\`Syncing \${logs.data.length} logs to SaaS...\`);
