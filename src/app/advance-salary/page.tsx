@@ -3,7 +3,7 @@ import { ServiceGuard } from "@/components/shared/service-guard";
 
 export default function AdvanceSalaryPage() {
   return (
-    <ServiceGuard id="advances">
+    <ServiceGuard id="finance">
       <AdvanceSalaryClient />
     </ServiceGuard>
   );

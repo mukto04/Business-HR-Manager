@@ -3,7 +3,7 @@ import { ServiceGuard } from "@/components/shared/service-guard";
 
 export default function MonthlySalaryPage() {
   return (
-    <ServiceGuard id="payroll">
+    <ServiceGuard id="finance">
       <MonthlySalaryClient />
     </ServiceGuard>
   );

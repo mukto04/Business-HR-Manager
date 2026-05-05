@@ -8,7 +8,7 @@ export const metadata = {
 
 export default function OfficeCostPage() {
   return (
-    <ServiceGuard id="costs">
+    <ServiceGuard id="office_admin">
       <OfficeCostClient />
     </ServiceGuard>
   );

@@ -3,7 +3,7 @@ import { ServiceGuard } from "@/components/shared/service-guard";
 
 export default function LoansPage() {
   return (
-    <ServiceGuard id="loans">
+    <ServiceGuard id="finance">
       <LoansClient />
     </ServiceGuard>
   );
