@@ -739,12 +739,11 @@ export default function TenantManagementPage() {
               {/* List */}
               <div className="flex-1 overflow-y-auto px-8 py-4 space-y-3 custom-scrollbar">
                  {[
-                   { id: 'attendance', label: 'Attendance Hub', desc: 'Sync & Reports', icon: Clock },
-                   { id: 'leaves', label: 'Leave Protocol', desc: 'Flows & Balance', icon: CalendarDays },
-                   { id: 'payroll', label: 'Payroll Engine', desc: 'Structures & Slips', icon: Coins },
-                   { id: 'loans', label: 'Financial Core', desc: 'Loans & Advances', icon: CreditCard },
-                   { id: 'costs', label: 'Capital Tracking', desc: 'Office Expenses', icon: Receipt },
-                   { id: 'spreadsheets', label: 'Data Exchange', desc: 'Google Sheets', icon: FileSpreadsheet },
+                   { id: 'main_menu', label: 'Main Menu', desc: 'Dashboard & Core', icon: Layout },
+                   { id: 'attendance', label: 'Attendance Management', desc: 'Sync & Reports', icon: Clock },
+                   { id: 'leaves', label: 'Leaves & Holidays', desc: 'Flows & Balance', icon: CalendarDays },
+                   { id: 'finance', label: 'Finance & Payroll', desc: 'Structures & Slips', icon: Coins },
+                   { id: 'office_admin', label: 'Office Administration', desc: 'Expenses & Sheets', icon: Receipt },
                  ].map((service) => {
                     const isEnabled = editingTenant.permissions?.[service.id] !== false;
                     return (
@@ -760,7 +759,7 @@ export default function TenantManagementPage() {
                          </div>
                          <button 
                            onClick={async () => {
-                              const defaultPerms = { attendance: true, leaves: true, payroll: true, loans: true, advances: true, costs: true, spreadsheets: true };
+                              const defaultPerms = { main_menu: true, attendance: true, leaves: true, finance: true, office_admin: true };
                               const currentPerms = (editingTenant.permissions && typeof editingTenant.permissions === 'object') ? editingTenant.permissions : defaultPerms;
                               const newPermissions = { ...defaultPerms, ...currentPerms, [service.id]: !isEnabled };
                               try {
