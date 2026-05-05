@@ -10,7 +10,11 @@ export async function POST(request: NextRequest) {
 
     const { machineStatus, error } = await request.json();
 
-    const tenantSlug = request.headers.get("x-tenant-slug");
+    let tenantSlug = request.headers.get("x-tenant-slug");
+    if (tenantSlug && tenantSlug.endsWith("-hr")) {
+       tenantSlug = tenantSlug.replace("-hr", "");
+    }
+    
     let prisma;
     
     try {

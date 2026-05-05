@@ -15,7 +15,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: "Logs must be an array" }, { status: 400 });
     }
 
-    const tenantSlug = request.headers.get("x-tenant-slug");
+    let tenantSlug = request.headers.get("x-tenant-slug");
+    if (tenantSlug && tenantSlug.endsWith("-hr")) {
+       tenantSlug = tenantSlug.replace("-hr", "");
+    }
+    
     let prisma;
     try {
       if (tenantSlug && !['default', 'attendance', 'undefined', ''].includes(tenantSlug)) {

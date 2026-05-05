@@ -145,7 +145,7 @@ export function DeviceSetupClient() {
 const HEARTBEAT_URL = "${window.location.origin}/api/attendance/heartbeat";
 const SYNC_URL = "${window.location.origin}/api/attendance/sync-push";
 const API_KEY = "${device.apiKey}";
-const TENANT_SLUG = "${window.location.pathname.split('/').filter(s => s && s !== 'attendance' && s !== 'super-admin' && s !== 'tenants')[0] || 'default'}"; // Auto-detected slug
+const TENANT_SLUG = "${window.location.pathname.split('/').filter(s => s && s !== 'attendance' && s !== 'super-admin' && s !== 'tenants')[0]?.replace('-hr', '') || 'default'}"; // Auto-detected slug
 const DEVICE_IP = "${device.ipAddress}";
 const DEVICE_PORT = ${device.port};
 const SYNC_INTERVAL_MINUTES = 5;
@@ -166,7 +166,7 @@ async function sendHeartbeat(machineStatus = "DISCONNECTED", error = null) {
         });
         console.log(\`[\${new Date().toLocaleString()}] Heartbeat sent: Machine is \${machineStatus}\`);
     } catch (e) {
-        console.error('Heartbeat failed:', e.message);
+        console.error('Heartbeat failed:', e.response && e.response.data ? e.response.data : e.message);
     }
 }
 
@@ -192,7 +192,7 @@ async function sync() {
         
     } catch (e) {
         const errMsg = e && e.message ? e.message : 'Unknown Connection Error or Timeout';
-        console.error('Connection Failed:', errMsg);
+        console.error('Sync process error:', e.response && e.response.data ? e.response.data : errMsg);
         
         // Detailed Diagnostics for Troubleshooting
         if (errMsg.includes('timeout') || errMsg.includes('EHOSTUNREACH') || errMsg === 'Unknown Connection Error or Timeout') {
