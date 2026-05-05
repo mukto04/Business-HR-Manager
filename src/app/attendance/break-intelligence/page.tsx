@@ -27,15 +27,6 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogFooter,
-  DialogDescription
-} from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
 import { getJson, sendJson } from "@/lib/http";
 import { toast } from "sonner";
 import { useDialog } from "@/components/ui/dialog-provider";
