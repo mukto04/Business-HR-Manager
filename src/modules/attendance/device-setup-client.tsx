@@ -145,7 +145,7 @@ export function DeviceSetupClient() {
 const HEARTBEAT_URL = "${window.location.origin}/api/attendance/heartbeat";
 const SYNC_URL = "${window.location.origin}/api/attendance/sync-push";
 const API_KEY = "${device.apiKey}";
-const TENANT_SLUG = "${window.location.pathname.split('/')[1] || 'default'}"; // Auto-detected slug
+const TENANT_SLUG = "${window.location.pathname.split('/').filter(s => s && s !== 'attendance' && s !== 'super-admin' && s !== 'tenants')[0] || 'default'}"; // Auto-detected slug
 const DEVICE_IP = "${device.ipAddress}";
 const DEVICE_PORT = ${device.port};
 const SYNC_INTERVAL_MINUTES = 5;
