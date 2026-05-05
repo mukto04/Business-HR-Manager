@@ -82,6 +82,13 @@ export function DeviceSetupClient() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [showApiKeyId, setShowApiKeyId] = useState<string | null>(null);
   const [setupOS, setSetupOS] = useState<"windows" | "linux">("windows");
+  const [copiedCmd, setCopiedCmd] = useState<string | null>(null);
+  
+  function copyCmd(cmd: string) {
+    navigator.clipboard.writeText(cmd);
+    setCopiedCmd(cmd);
+    setTimeout(() => setCopiedCmd(null), 2000);
+  }
   const dialog = useDialog();
   const { t } = useTranslation();
 
@@ -356,7 +363,7 @@ setInterval(sync, SYNC_INTERVAL_MINUTES * 60 * 1000);
                 <div className="relative pl-10">
                    <div className="absolute left-0 top-0 w-8 h-8 bg-white border-2 border-slate-200 text-slate-400 rounded-full flex items-center justify-center font-bold text-sm z-10">2</div>
                    <h5 className="font-bold text-slate-800 text-sm mb-1">{t("Install Node.js")}</h5>
-                   <p className="text-[11px] text-slate-500 mb-3">{t("Install Node.js on the PC connected to the same router.")}</p>
+                   <p className="text-[11px] text-slate-500 mb-3">{t("Install Node.js on the PC connected to the same router as the biometric device.")}</p>
                    <a 
                       href="https://nodejs.org/en/download/prebuilt-installer" 
                       target="_blank" 
@@ -370,30 +377,57 @@ setInterval(sync, SYNC_INTERVAL_MINUTES * 60 * 1000);
                 <div className="relative pl-10">
                    <div className="absolute left-0 top-0 w-8 h-8 bg-white border-2 border-slate-200 text-slate-400 rounded-full flex items-center justify-center font-bold text-sm z-10">3</div>
                    <h5 className="font-bold text-slate-800 text-sm mb-1">{t("Install Dependencies")}</h5>
-                   <p className="text-[11px] text-slate-500 mb-2">{t("Open CMD/Terminal in that folder and run:")}</p>
-                   <div className="bg-slate-900 rounded-xl p-3 font-mono text-[10px] text-emerald-400">
-                      <span className="text-slate-500">$</span> npm install node-zklib axios
+                   <p className="text-[11px] text-slate-500 mb-2">{t("Open CMD or Terminal and run the following command to install required packages:")}</p>
+                   <div className="flex items-center gap-2">
+                      <div className="flex-1 bg-slate-900 rounded-xl px-3 py-2.5 font-mono text-[10px] text-emerald-400">
+                         <span className="text-slate-500">$ </span>npm install node-zklib axios
+                      </div>
+                      <button
+                         onClick={() => copyCmd('npm install node-zklib axios')}
+                         className={`shrink-0 flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-[10px] font-bold transition-all border ${
+                           copiedCmd === 'npm install node-zklib axios'
+                             ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
+                             : 'bg-slate-100 text-slate-500 hover:bg-slate-200 border-slate-200'
+                         }`}
+                      >
+                         {copiedCmd === 'npm install node-zklib axios' ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                         {copiedCmd === 'npm install node-zklib axios' ? 'Copied!' : 'Copy'}
+                      </button>
                    </div>
                 </div>
 
                 {/* Step 4 */}
                 <div className="relative pl-10">
                    <div className="absolute left-0 top-0 w-8 h-8 bg-white border-2 border-slate-200 text-slate-400 rounded-full flex items-center justify-center font-bold text-sm z-10">4</div>
-                   <h5 className="font-bold text-slate-800 text-sm mb-1">{t("Test Connection")}</h5>
-                   <p className="text-[11px] text-slate-500 mb-2">{t("Run the agent manually to check if it connects to the machine:")}</p>
-                   <div className="bg-slate-900 rounded-xl p-3 font-mono text-[10px] text-blue-400 mb-2">
-                      <span className="text-slate-500">$</span> node <span className="text-red-500 font-bold bg-red-500/10 px-1 rounded">your-agent-filename.js</span>
+                   <h5 className="font-bold text-slate-800 text-sm mb-1">{t("Download Sync Agent")}</h5>
+                   <p className="text-[11px] text-slate-500 mb-2">{t("From the device card above, click the")}{" "}<strong className="text-blue-600">{t("Download Agent")}</strong>{" "}{t("button to download the pre-configured sync agent file for your device. Save it in a dedicated folder (e.g., C:\\sync-agent\\).")}</p>
+                   <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-xl">
+                      <Download className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                      <p className="text-[10px] text-amber-700 font-medium">{t("The agent file is unique per device — it contains your API key and device IP.")}</p>
                    </div>
-                   <p className="text-[10px] text-amber-600 font-medium italic">
-                      {t("* Replace 'your-agent-filename.js' with the actual name of the file you downloaded.")}
-                   </p>
                 </div>
 
                 {/* Step 5 */}
                 <div className="relative pl-10">
                    <div className="absolute left-0 top-0 w-8 h-8 bg-white border-2 border-slate-200 text-slate-400 rounded-full flex items-center justify-center font-bold text-sm z-10">5</div>
+                   <h5 className="font-bold text-slate-800 text-sm mb-1">{t("Test Connection")}</h5>
+                   <p className="text-[11px] text-slate-500 mb-2">{t("Open CMD inside the folder where you saved the agent file, then run:")}</p>
+                   <div className="flex items-center gap-2">
+                      <div className="flex-1 bg-slate-900 rounded-xl px-3 py-2.5 font-mono text-[10px] text-blue-400">
+                         <span className="text-slate-500">$ </span>node <span className="text-red-400 font-bold">your-agent-filename.js</span>
+                      </div>
+                   </div>
+                   <p className="text-[10px] text-amber-600 font-medium italic mt-1.5">
+                      {t("* Replace 'your-agent-filename.js' with the actual downloaded file name.")}
+                   </p>
+                </div>
+
+                {/* Step 6 */}
+                <div className="relative pl-10">
                    <div className="flex items-center justify-between gap-4 mb-2">
-                      <h5 className="font-bold text-slate-800 text-sm">{t("Auto-Run (Background)")}</h5>
+                      <div className="flex items-center gap-3">
+                         <h5 className="font-bold text-slate-800 text-sm">{t("Auto-Run (Background)")}</h5>
+                      </div>
                       <div className="flex bg-slate-100 p-1 rounded-lg shrink-0">
                          <button 
                             className={`px-2 py-1 text-[9px] font-black uppercase rounded-md transition-all ${setupOS === 'windows' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500'}`}
@@ -409,26 +443,62 @@ setInterval(sync, SYNC_INTERVAL_MINUTES * 60 * 1000);
                          </button>
                       </div>
                    </div>
-                   
-                   <p className="text-[11px] text-slate-500 mb-2 leading-relaxed">
+                   <p className="text-[11px] text-slate-500 mb-3 leading-relaxed">
                       {setupOS === 'windows' 
-                        ? "To run automatically on startup, open CMD as Admin and run:"
+                        ? "To run automatically on Windows startup, open CMD as Administrator and run each command:"
                         : "To keep it running in the background on Linux, use PM2:"}
                    </p>
                    
                    {setupOS === 'windows' ? (
-                     <div className="bg-slate-900 rounded-xl p-3 font-mono text-[10px] text-blue-400">
-                        <span className="text-slate-500">$</span> npm install -g qckwinsvc
-                        <br/>
-                        <span className="text-slate-500">$</span> qckwinsvc
+                     <div className="space-y-2">
+                       {[
+                         { cmd: 'npm install -g qckwinsvc', label: 'Install Windows Service Tool' },
+                         { cmd: 'qckwinsvc', label: 'Register as Windows Service' },
+                       ].map(({ cmd, label }) => (
+                         <div key={cmd}>
+                           <p className="text-[9px] text-slate-400 uppercase tracking-widest mb-1 font-bold">{label}</p>
+                           <div className="flex items-center gap-2">
+                             <div className="flex-1 bg-slate-900 rounded-xl px-3 py-2.5 font-mono text-[10px] text-blue-400">
+                               <span className="text-slate-500">$ </span>{cmd}
+                             </div>
+                             <button
+                               onClick={() => copyCmd(cmd)}
+                               className={`shrink-0 flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-[10px] font-bold transition-all border ${
+                                 copiedCmd === cmd ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-slate-100 text-slate-500 hover:bg-slate-200 border-slate-200'
+                               }`}
+                             >
+                               {copiedCmd === cmd ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                               {copiedCmd === cmd ? 'Copied!' : 'Copy'}
+                             </button>
+                           </div>
+                         </div>
+                       ))}
                      </div>
                    ) : (
-                     <div className="bg-slate-900 rounded-xl p-3 font-mono text-[10px] text-indigo-400">
-                        <span className="text-slate-500">$</span> npm install -g pm2
-                        <br/>
-                        <span className="text-slate-500">$</span> pm2 start sync-agent-name.js
-                        <br/>
-                        <span className="text-slate-500">$</span> pm2 save
+                     <div className="space-y-2">
+                       {[
+                         { cmd: 'npm install -g pm2', label: 'Install PM2 Process Manager' },
+                         { cmd: 'pm2 start sync-agent-name.js', label: 'Start Agent in Background' },
+                         { cmd: 'pm2 save', label: 'Save to Auto-Restart on Reboot' },
+                       ].map(({ cmd, label }) => (
+                         <div key={cmd}>
+                           <p className="text-[9px] text-slate-400 uppercase tracking-widest mb-1 font-bold">{label}</p>
+                           <div className="flex items-center gap-2">
+                             <div className="flex-1 bg-slate-900 rounded-xl px-3 py-2.5 font-mono text-[10px] text-indigo-400">
+                               <span className="text-slate-500">$ </span>{cmd}
+                             </div>
+                             <button
+                               onClick={() => copyCmd(cmd)}
+                               className={`shrink-0 flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-[10px] font-bold transition-all border ${
+                                 copiedCmd === cmd ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-slate-100 text-slate-500 hover:bg-slate-200 border-slate-200'
+                               }`}
+                             >
+                               {copiedCmd === cmd ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                               {copiedCmd === cmd ? 'Copied!' : 'Copy'}
+                             </button>
+                           </div>
+                         </div>
+                       ))}
                      </div>
                    )}
                 </div>
