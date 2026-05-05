@@ -30,10 +30,10 @@ const sidebarGroups = [
   {
     title: "Main Menu",
     links: [
-      { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-      { href: "/employees", label: "Employees", icon: Users },
-      { href: "/requests", label: "Request Applications", icon: ClipboardCheck },
-      { href: "/notepad", label: "Quick Notepad", icon: StickyNote },
+      { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, serviceId: "main_menu" },
+      { href: "/employees", label: "Employees", icon: Users, serviceId: "main_menu" },
+      { href: "/requests", label: "Request Applications", icon: ClipboardCheck, serviceId: "main_menu" },
+      { href: "/notepad", label: "Quick Notepad", icon: StickyNote, serviceId: "main_menu" },
     ]
   },
   {
@@ -55,17 +55,17 @@ const sidebarGroups = [
   {
     title: "Finance & Payroll",
     links: [
-      { href: "/loans", label: "Loans", icon: CreditCard, serviceId: "loans" },
-      { href: "/advance-salary", label: "Advance Salary", icon: Banknote, serviceId: "advances" },
-      { href: "/salary", label: "Salary Structure", icon: Coins, serviceId: "payroll" },
-      { href: "/monthly-salary", label: "Monthly Salary", icon: Coins, serviceId: "payroll" },
+      { href: "/loans", label: "Loans", icon: CreditCard, serviceId: "finance" },
+      { href: "/advance-salary", label: "Advance Salary", icon: Banknote, serviceId: "finance" },
+      { href: "/salary", label: "Salary Structure", icon: Coins, serviceId: "finance" },
+      { href: "/monthly-salary", label: "Monthly Salary", icon: Coins, serviceId: "finance" },
     ]
   },
   {
     title: "Office Administration",
     links: [
-      { href: "/office-cost", label: "Office Cost Calculator", icon: Receipt, serviceId: "costs" },
-      { href: "/google-sheet", label: "Company Spreadsheet", icon: FileSpreadsheet, serviceId: "spreadsheets" },
+      { href: "/office-cost", label: "Office Cost Calculator", icon: Receipt, serviceId: "office_admin" },
+      { href: "/google-sheet", label: "Company Spreadsheet", icon: FileSpreadsheet, serviceId: "office_admin" },
     ]
   }
 ];

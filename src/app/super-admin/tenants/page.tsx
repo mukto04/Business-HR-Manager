@@ -717,7 +717,7 @@ export default function TenantManagementPage() {
       {/* Services Modal - Redesigned Premium */}
       {showServicesModal && editingTenant && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center p-6 bg-black/90 backdrop-blur-xl animate-in fade-in duration-300" onClick={(e) => { if (e.target === e.currentTarget) setShowServicesModal(false); }}>
-           <div className="bg-slate-900 border border-slate-800 rounded-[40px] w-full max-w-md shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-500 max-h-[90vh]">
+           <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-500 max-h-[90vh]">
               {/* Header */}
               <div className="relative p-8 pb-4">
                  <div className="flex items-center justify-between">
@@ -747,14 +747,14 @@ export default function TenantManagementPage() {
                  ].map((service) => {
                     const isEnabled = editingTenant.permissions?.[service.id] !== false;
                     return (
-                      <div key={service.id} className="group flex items-center justify-between p-4 bg-white/[0.02] border border-white/5 rounded-3xl hover:bg-white/[0.04] transition-all">
+                      <div key={service.id} className="group flex items-center justify-between p-4 bg-white/[0.02] border border-white/5 rounded-xl hover:bg-white/[0.04] transition-all">
                          <div className="flex items-center gap-4">
-                            <div className={`p-2.5 rounded-xl border transition-colors ${isEnabled ? 'bg-orange-600/10 border-orange-600/20 text-orange-500' : 'bg-slate-800 text-slate-600 border-slate-700'}`}>
+                            <div className={`p-2.5 rounded-lg border transition-colors ${isEnabled ? 'bg-orange-600/10 border-orange-600/20 text-orange-500' : 'bg-slate-800 text-slate-600 border-slate-700'}`}>
                                <service.icon className="w-4 h-4" />
                             </div>
                             <div>
                                <div className="text-xs font-bold text-white tracking-wide">{service.label}</div>
-                               <div className="text-[9px] text-slate-600 font-bold uppercase tracking-tighter">{service.desc}</div>
+                               <div className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-0.5">{service.desc}</div>
                             </div>
                          </div>
                          <button 
@@ -774,9 +774,9 @@ export default function TenantManagementPage() {
                                 }
                               } catch (e) { alert("Update failed"); }
                            }}
-                           className={`h-5 w-9 rounded-full transition-all flex items-center px-0.5 ${isEnabled ? 'bg-orange-600' : 'bg-slate-800'}`}
+                           className={`h-6 w-11 rounded-full transition-all flex items-center px-0.5 ${isEnabled ? 'bg-orange-600' : 'bg-slate-800'}`}
                          >
-                            <div className={`h-4 w-4 rounded-full bg-white shadow-md transition-all ${isEnabled ? 'translate-x-4' : 'translate-x-0'}`} />
+                            <div className={`h-5 w-5 rounded-full bg-white shadow-md transition-all ${isEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
                          </button>
                       </div>
                     );
@@ -785,7 +785,7 @@ export default function TenantManagementPage() {
 
               {/* Quota */}
               <div className="p-8 space-y-4">
-                 <div className="p-5 bg-slate-800/40 border border-slate-800 rounded-3xl flex items-center justify-between">
+                  <div className="p-4 bg-slate-800/40 border border-slate-800 rounded-xl flex items-center justify-between">
                     <div className="space-y-1">
                       <div className="text-[10px] font-black text-orange-500 uppercase tracking-widest">Seat Quota</div>
                       <div className="text-[9px] text-slate-600 font-bold uppercase tracking-tighter">Instance Employee Limit</div>
