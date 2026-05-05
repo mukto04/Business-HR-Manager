@@ -543,16 +543,16 @@ export default function TenantManagementPage() {
               <form id="tenant-form" onSubmit={handleFormSubmit} className="space-y-6">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-0.5">Company Label</label>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-0.5">Company Name</label>
                     <input 
                       required 
-                      placeholder="e.g. Acme Corp"
+                      placeholder="e.g. Acme Corporation"
                       value={formData.companyName}
                       onChange={(e) => setFormData({...formData, companyName: e.target.value})}
                       className="w-full bg-black/40 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:ring-1 focus:ring-red-600 outline-none transition-all" />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-0.5">URL Handle (Slug)</label>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-0.5">Portal Address (URL)</label>
                     <div className="flex items-center bg-black/40 border border-slate-800 rounded-xl overflow-hidden focus-within:ring-1 focus-within:ring-red-600 transition-all">
                       <span className="pl-4 text-slate-700 font-mono text-xs select-none">/</span>
                       <input 
@@ -569,7 +569,7 @@ export default function TenantManagementPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-0.5">MongoDB Instance URL</label>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-0.5">Database Connection String</label>
                   <div className="flex gap-2">
                     <input 
                       required 
@@ -598,7 +598,7 @@ export default function TenantManagementPage() {
 
                 <div className="grid grid-cols-2 gap-5">
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-0.5">Subscription Tier</label>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-0.5">Subscription Plan</label>
                     <div className="relative">
                       <button 
                         type="button"
@@ -656,18 +656,35 @@ export default function TenantManagementPage() {
                     </div>
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-0.5">User Capacity</label>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-0.5">Seat Limit (Employees)</label>
                     <input 
                       type="number"
+                      placeholder="e.g. 50"
                       value={formData.employeeLimit}
                       onChange={(e) => setFormData({...formData, employeeLimit: parseInt(e.target.value) || 0})}
                       className="w-full bg-black/40 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:ring-1 focus:ring-red-600 outline-none transition-all" />
                   </div>
                 </div>
 
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-0.5">Subscription Validity (Days)</label>
+                  <div className="flex items-center bg-black/40 border border-slate-800 rounded-xl overflow-hidden focus-within:ring-1 focus-within:ring-red-600 transition-all">
+                    <input 
+                      type="number"
+                      required 
+                      placeholder="30"
+                      value={formData.subscriptionDays}
+                      onChange={(e) => setFormData({...formData, subscriptionDays: e.target.value})}
+                      className="w-full bg-transparent px-4 py-3 text-sm text-white outline-none" />
+                    <span className="pr-4 py-3 text-slate-500 font-bold text-[10px] uppercase tracking-widest border-l border-slate-800 bg-slate-900/50 px-3 whitespace-nowrap">
+                      Days
+                    </span>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 pt-4 border-t border-slate-800/50">
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-0.5">Root Admin Username</label>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-0.5">Admin Username</label>
                     <input 
                       required 
                       value={formData.adminUsername}
@@ -675,7 +692,7 @@ export default function TenantManagementPage() {
                       className="w-full bg-black/40 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white outline-none focus:ring-1 focus:ring-red-600 transition-all" />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-0.5">Root Password</label>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-0.5">Admin Password</label>
                     <div className="relative">
                       <input 
                         required 
