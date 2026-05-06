@@ -79,7 +79,7 @@ export async function DELETE(_: NextRequest, context: { params: Promise<{ id: st
     const { id } = await context.params;
     await (await getTenantPrisma()).employee.update({
       where: { id },
-      data: { status: "DISABLED" }
+      data: { status: "DEACTIVE" }
     });
     return NextResponse.json({ message: "Employee deleted successfully" });
   } catch (error) {

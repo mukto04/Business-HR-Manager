@@ -45,6 +45,7 @@ model Employee {
   loanRequests    LoanRequest[]
   advanceRequests AdvanceSalaryRequest[]
   leaveRequests   LeaveRequest[]
+  increments      SalaryIncrement[]
   
   @@index([fingerprintId])
 }
@@ -452,4 +453,22 @@ model AdmsLog {
   body      String?
   method    String?
   createdAt DateTime @default(now())
+}
+
+model SalaryIncrement {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  employeeId      String   @db.ObjectId
+  amount          Float    // The increment amount added
+  percentage      Float?   // Optional: the percentage used
+  type            String   // FIXED_AMOUNT, PERCENT_TOTAL, PERCENT_BASIC
+  oldSalary       Float    // Salary before increment
+  newSalary       Float    // Salary after increment
+  effectiveMonth  Int
+  effectiveYear   Int
+  note            String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  employee        Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
 }

@@ -19,7 +19,8 @@ import {
   FileSpreadsheet,
   Coffee,
   StickyNote,
-  ClipboardCheck
+  ClipboardCheck,
+  TrendingUp
 } from "lucide-react";
 import { cn } from "@/utils/classnames";
 import { useAsyncData } from "@/modules/shared/use-async-data";
@@ -58,6 +59,7 @@ const sidebarGroups = [
       { href: "/loans", label: "Loans", icon: CreditCard, serviceId: "finance" },
       { href: "/advance-salary", label: "Advance Salary", icon: Banknote, serviceId: "finance" },
       { href: "/salary", label: "Salary Structure", icon: Coins, serviceId: "finance" },
+      { href: "/finance/salary-increment", label: "Salary Increment", icon: TrendingUp, serviceId: "finance" },
       { href: "/monthly-salary", label: "Monthly Salary", icon: Coins, serviceId: "finance" },
     ]
   },
