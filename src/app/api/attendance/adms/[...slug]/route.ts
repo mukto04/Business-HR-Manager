@@ -17,10 +17,15 @@ export async function GET(
 
   console.log(`ADMS GET [${tenantSlug}]: ${path} | SN: ${sn}`);
 
-  // Update device status if SN is provided
-  if (sn) {
-    try {
-      const prisma = await getPrismaBySlug(tenantSlug);
+  try {
+    const prisma = await getPrismaBySlug(tenantSlug);
+    
+    // DEBUG LOG
+    await (prisma as any).admsLog.create({
+      data: { sn, path, method: "GET" }
+    });
+
+    if (sn) {
       const device = await prisma.attendanceDevice.findUnique({
         where: { serialNumber: sn }
       });
@@ -35,16 +40,9 @@ export async function GET(
           }
         });
       }
-    } catch (err) {
-      console.error("ADMS GET Status Update Error:", err);
     }
-  }
-
-  // 1. Handshake / Initialization
-  if (path === "iclock/cdata" || path === "") {
-    return new NextResponse("OK", {
-      headers: { "Content-Type": "text/plain" }
-    });
+  } catch (err) {
+    console.error("ADMS GET Error:", err);
   }
 
   return new NextResponse("OK", {
@@ -68,6 +66,11 @@ export async function POST(
     const prisma = await getPrismaBySlug(tenantSlug);
     const body = await request.text();
 
+    // DEBUG LOG - Capture raw push data
+    await (prisma as any).admsLog.create({
+      data: { sn, table, path, body, method: "POST" }
+    });
+
     console.log(`ADMS POST [${tenantSlug}]: ${path} | Table: ${table} | SN: ${sn}`);
 
     if (table === "ATTLOG") {
@@ -81,25 +84,21 @@ export async function POST(
 
       let processedCount = 0;
       for (const line of lines) {
-        // Regex to split by any whitespace (tab or space)
         const parts = line.trim().split(/\s+/);
         if (parts.length < 2) continue;
 
         const employeeCodeRaw = parts[0];
-        const dateStr = parts[1]; // yyyy-mm-dd
-        const timeStr = parts[2]; // hh:mm:ss
+        const dateStr = parts[1]; 
+        const timeStr = parts[2]; 
         
         if (!dateStr || !timeStr) continue;
 
-        // BDT Midnight (UTC+6) = 18:00 UTC previous day
         const dParts = dateStr.split("-");
         const dateOnly = new Date(Date.UTC(parseInt(dParts[0]), parseInt(dParts[1]) - 1, parseInt(dParts[2]), -6, 0, 0, 0));
         
-        // Actual Check-In time (full timestamp)
         const punchTime = new Date(`${dateStr}T${timeStr}`);
         if (isNaN(punchTime.getTime())) continue;
 
-        // Find employee by employeeCode OR fingerprintId
         const numericId = parseInt(employeeCodeRaw).toString();
         const employee = await prisma.employee.findFirst({
           where: {
@@ -130,7 +129,6 @@ export async function POST(
                 status: "PRESENT" 
               };
             } else {
-              // Check-In is the earliest punch, Check-Out is the latest
               if (!existing.checkOut || punchTime > existing.checkOut) {
                 updateData.checkOut = punchTime;
               }
@@ -180,6 +178,6 @@ export async function POST(
     return new NextResponse("OK", { headers: { "Content-Type": "text/plain" } });
   } catch (error: any) {
     console.error("ADMS POST Error:", error);
-    return new NextResponse("ERROR", { status: 500 });
+    return new NextResponse("OK", { headers: { "Content-Type": "text/plain" } }); // Always return OK to device
   }
 }

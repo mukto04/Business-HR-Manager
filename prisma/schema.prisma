@@ -444,3 +444,12 @@ model LeaveRequest {
   @@index([employeeId])
   @@index([status])
 }
+model AdmsLog {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  sn        String?
+  table     String?
+  path      String?
+  body      String?
+  method    String?
+  createdAt DateTime @default(now())
+}
