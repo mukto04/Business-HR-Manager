@@ -72,8 +72,18 @@ export async function POST(
       data: { sn, table: table || "NONE", path: fullUrl, body: body.substring(0, 1000), method: "POST" }
     });
 
-    // Handle both ATTLOG (Attendance) and EVENT (Access Control)
-    if (table === "ATTLOG" || table === "EVENT" || body.includes("ATTLOG") || body.includes("EVENT")) {
+    // Handle Registration (if body contains DeviceType and table is NONE)
+    if (body.includes("DeviceType=") && (!table || table === "NONE")) {
+        console.log(`ADMS [${tenantSlug}] Registration from ${sn}`);
+        return new NextResponse("OK", { 
+            headers: { "Content-Type": "text/plain" } 
+        });
+    }
+
+    // Handle ATTLOG (Attendance) or EVENT (Access Control)
+    const isAttendance = table === "ATTLOG" || table === "EVENT" || body.includes("ATTLOG") || body.includes("EVENT");
+    
+    if (isAttendance) {
       const lines = body.split("\n").filter(l => l.trim().length > 0);
       
       const settings = await prisma.tenantSettings.findFirst();
@@ -84,19 +94,15 @@ export async function POST(
 
       let processedCount = 0;
       for (const line of lines) {
-        // Regex to split by any whitespace (tab or space)
         const parts = line.trim().split(/\s+/);
         if (parts.length < 2) continue;
 
         const employeeCodeRaw = parts[0];
-        // For EVENT table, parts[1] might be timestamp or other info. 
-        // We'll try to find a date-like string.
         let dateStr = parts[1]; 
         let timeStr = parts[2];
 
-        // Basic validation for date format (YYYY-MM-DD)
+        // Flexible date finding
         if (!dateStr || !dateStr.includes("-")) {
-            // Try to find it in other parts if it's an EVENT table
             const potentialDate = parts.find(p => p.includes("-") && p.split("-").length === 3);
             if (potentialDate) {
                 const idx = parts.indexOf(potentialDate);
@@ -107,15 +113,12 @@ export async function POST(
         
         if (!dateStr || !timeStr) continue;
 
-        // BDT Midnight (UTC+6) = 18:00 UTC previous day
         const dParts = dateStr.split("-");
         const dateOnly = new Date(Date.UTC(parseInt(dParts[0]), parseInt(dParts[1]) - 1, parseInt(dParts[2]), -6, 0, 0, 0));
         
-        // Actual Check-In time (full timestamp)
         const punchTime = new Date(`${dateStr}T${timeStr}`);
         if (isNaN(punchTime.getTime())) continue;
 
-        // Find employee
         const numericId = parseInt(employeeCodeRaw).toString();
         const employee = await prisma.employee.findFirst({
           where: {
@@ -131,12 +134,7 @@ export async function POST(
         if (employee) {
           await prisma.$transaction(async (tx) => {
             const existing = await tx.attendance.findUnique({
-              where: {
-                employeeId_date: {
-                  employeeId: employee.id,
-                  date: dateOnly
-                }
-              }
+              where: { employeeId_date: { employeeId: employee.id, date: dateOnly } }
             });
 
             let updateData: any = {};
@@ -168,6 +166,7 @@ export async function POST(
         }
       }
       console.log(`ADMS [${tenantSlug}] Processed ${processedCount} logs.`);
+      return new NextResponse("OK", { headers: { "Content-Type": "text/plain" } });
     }
 
     return new NextResponse("OK", { headers: { "Content-Type": "text/plain" } });
