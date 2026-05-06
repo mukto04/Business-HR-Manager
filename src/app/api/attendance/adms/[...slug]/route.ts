@@ -133,7 +133,15 @@ export async function POST(
                 // If there was already a checkOut, the old checkOut might become a break
                 if (existing.checkOut) {
                     await tx.breakRecord.create({
-                        data: { employeeId: employee.id, attendanceId: existing.id, startTime: existing.checkOut, endTime: punchTime, note: "Auto-detected break (middle punch)", status: "COMPLETED" }
+                        data: { 
+                          employeeId: employee.id, 
+                          attendanceId: existing.id, 
+                          date: dateOnly, 
+                          startTime: existing.checkOut, 
+                          endTime: punchTime, 
+                          note: "Auto-detected break (middle punch)", 
+                          status: "COMPLETED" 
+                        }
                     });
                 }
                 updateData.checkOut = punchTime;
@@ -142,7 +150,15 @@ export async function POST(
               } else {
                 // Middle punch -> Record as BreakRecord
                 await tx.breakRecord.create({
-                    data: { employeeId: employee.id, attendanceId: existing.id, startTime: punchTime, endTime: punchTime, note: "Biometric middle punch", status: "COMPLETED" }
+                    data: { 
+                      employeeId: employee.id, 
+                      attendanceId: existing.id, 
+                      date: dateOnly, 
+                      startTime: punchTime, 
+                      endTime: punchTime, 
+                      note: "Biometric middle punch", 
+                      status: "COMPLETED" 
+                    }
                 });
               }
             }

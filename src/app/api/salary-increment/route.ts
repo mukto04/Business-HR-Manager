@@ -82,8 +82,8 @@ export async function POST(request: NextRequest) {
             travelAllowance: breakdown.travelAllowance,
             others: breakdown.others,
             festivalBonus: breakdown.festivalBonus || 0,
-            breakdown: breakdown.breakdown
-          } as any
+            breakdown: breakdown.breakdown as any
+          }
         });
 
         // 2. Create Increment Record
@@ -107,19 +107,23 @@ export async function POST(request: NextRequest) {
         const curYear = now.getFullYear();
 
         if (Number(month) === curMonth && Number(year) === curYear) {
-            const { festivalBonus, ...monthlyBreakdown } = breakdown;
             await tx.monthlySalary.updateMany({
                 where: {
                     employeeId: employee.id,
                     month: curMonth,
                     year: curYear,
-                    isPaid: false // Only update if not yet paid
+                    isPaid: false
                 },
                 data: {
                     totalSalary: newSalary,
-                    ...monthlyBreakdown,
-                    workingDaySalary: newSalary, // Adjust base working day salary
-                    payableSalary: { increment: incrementAmount } // Simple increment on payable
+                    basicSalary: breakdown.basicSalary,
+                    hra: breakdown.hra,
+                    medicalAllowance: breakdown.medicalAllowance,
+                    travelAllowance: breakdown.travelAllowance,
+                    others: breakdown.others,
+                    breakdown: breakdown.breakdown as any,
+                    workingDaySalary: newSalary,
+                    payableSalary: { increment: incrementAmount }
                 } as any
             });
         }
@@ -134,5 +138,92 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error("Increment Error:", error);
     return NextResponse.json({ message: "Failed to apply increment", error: error.message }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get("id"); // Increment Record ID
+
+    if (!id) {
+      return NextResponse.json({ message: "Increment ID is required" }, { status: 400 });
+    }
+
+    const prisma = await getTenantPrisma();
+    const settings = await prisma.tenantSettings.findFirst();
+
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. Find the increment record
+      const increment = await tx.salaryIncrement.findUnique({
+        where: { id }
+      });
+
+      if (!increment) throw new Error("Increment record not found");
+
+      // 2. Fetch current salary structure
+      const structure = await tx.salaryStructure.findUnique({
+        where: { employeeId: increment.employeeId }
+      });
+
+      if (structure) {
+        // 3. Revert Salary
+        const newSalary = structure.totalSalary - increment.amount;
+        const breakdown = calculateSalaryBreakdown(newSalary, settings?.salaryStructure as any[] | undefined);
+
+        await tx.salaryStructure.update({
+          where: { employeeId: increment.employeeId },
+          data: {
+            totalSalary: newSalary,
+            basicSalary: breakdown.basicSalary,
+            hra: breakdown.hra,
+            medicalAllowance: breakdown.medicalAllowance,
+            travelAllowance: breakdown.travelAllowance,
+            others: breakdown.others,
+            festivalBonus: breakdown.festivalBonus || 0,
+            breakdown: breakdown.breakdown
+          } as any
+        });
+
+        // 4. Update current month salary if it was already updated
+        const now = new Date();
+        const curMonth = now.getMonth() + 1;
+        const curYear = now.getFullYear();
+
+        if (increment.effectiveMonth === curMonth && increment.effectiveYear === curYear) {
+             await tx.monthlySalary.updateMany({
+                 where: {
+                     employeeId: increment.employeeId,
+                     month: curMonth,
+                     year: curYear,
+                     isPaid: false
+                 },
+                 data: {
+                     totalSalary: newSalary,
+                     basicSalary: breakdown.basicSalary,
+                     hra: breakdown.hra,
+                     medicalAllowance: breakdown.medicalAllowance,
+                     travelAllowance: breakdown.travelAllowance,
+                     others: breakdown.others,
+                     breakdown: breakdown.breakdown as any,
+                     workingDaySalary: newSalary,
+                     payableSalary: { decrement: increment.amount }
+                 } as any
+             });
+        }
+      }
+
+      // 5. Delete the increment record
+      await tx.salaryIncrement.delete({
+        where: { id }
+      });
+
+      return true;
+    });
+
+    return NextResponse.json({ message: "Increment reverted successfully" });
+  } catch (error: any) {
+    console.error("Revert Error:", error);
+    return NextResponse.json({ message: "Failed to revert increment", error: error.message }, { status: 500 });
   }
 }

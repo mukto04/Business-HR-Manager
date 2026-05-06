@@ -265,16 +265,19 @@ model Attendance {
 model BreakRecord {
   id          String   @id @default(auto()) @map("_id") @db.ObjectId
   employeeId  String   @db.ObjectId
+  attendanceId String?  @db.ObjectId // Optional link to daily attendance
   date        DateTime
   startTime   DateTime
   endTime     DateTime?
   duration    Int      @default(0) // in minutes
   note        String?
+  status      String?  @default("COMPLETED")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   @@index([employeeId, date])
+  @@index([attendanceId])
 }
 
 model BreakRequest {

@@ -22,6 +22,7 @@ import { format } from "date-fns";
 import { toast } from "sonner";
 import { useDialog } from "@/components/ui/dialog-provider";
 import { IncrementModal } from "./components/increment-modal";
+import { HistoryModal } from "./components/history-modal";
 
 export default function SalaryIncrementPage() {
   const { t } = useTranslation();
@@ -29,6 +30,7 @@ export default function SalaryIncrementPage() {
   const [tab, setTab] = useState<"ACTIVE" | "DEACTIVE">("ACTIVE");
   const [search, setSearch] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [historyEmployee, setHistoryEmployee] = useState<any>(null);
   const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
 
   const { data: employees, loading, refresh } = useAsyncData<any[]>(
@@ -242,6 +244,16 @@ export default function SalaryIncrementPage() {
                         <Button
                           variant="ghost"
                           size="sm"
+                          onClick={() => setHistoryEmployee(emp)}
+                          className="rounded-lg h-7 px-2 hover:bg-slate-100 hover:text-slate-600 font-bold text-[9px] uppercase"
+                        >
+                          <History className="w-2.5 h-2.5 mr-1" />
+                          {t("History")}
+                        </Button>
+
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={() => {
                             setSelectedEmployees([emp.id]);
                             setIsModalOpen(true);
@@ -321,6 +333,17 @@ export default function SalaryIncrementPage() {
           }}
           selectedIds={selectedEmployees}
           employees={employees}
+        />
+      )}
+
+      {historyEmployee && (
+        <HistoryModal 
+          employee={historyEmployee}
+          onClose={() => setHistoryEmployee(null)}
+          onSuccess={() => {
+            setHistoryEmployee(null);
+            refresh();
+          }}
         />
       )}
     </div>
