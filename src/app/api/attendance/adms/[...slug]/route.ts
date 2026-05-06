@@ -118,9 +118,14 @@ export async function POST(
           const dateOnly = new Date(timestamp);
           dateOnly.setHours(0, 0, 0, 0);
 
-          // Find employee
-          const employee = await prisma.employee.findUnique({
-            where: { employeeCode }
+          // Find employee by employeeCode OR fingerprintId
+          const employee = await prisma.employee.findFirst({
+            where: {
+              OR: [
+                { employeeCode: employeeCode },
+                { fingerprintId: employeeCode }
+              ]
+            }
           });
 
           if (employee) {
