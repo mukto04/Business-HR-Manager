@@ -38,7 +38,7 @@ export default function AdmsDebugPage() {
           <thead className="bg-slate-50 border-b">
             <tr>
               <th className="p-4">Time</th>
-              <th className="p-4">SN</th>
+              <th className="p-4">Path</th>
               <th className="p-4">Method</th>
               <th className="p-4">Table</th>
               <th className="p-4">Raw Body</th>
@@ -47,13 +47,14 @@ export default function AdmsDebugPage() {
           <tbody>
             {logs.length === 0 ? (
               <tr>
-                <td colSpan={5} className="p-8 text-center text-slate-400">No logs captured yet. Punch on the machine to generate logs.</td>
+                <td colSpan={6} className="p-8 text-center text-slate-400">No logs captured yet. Punch on the machine to generate logs.</td>
               </tr>
             ) : (
               logs.map((log) => (
                 <tr key={log.id} className="border-b hover:bg-slate-50">
                   <td className="p-4 whitespace-nowrap">{format(new Date(log.createdAt), "HH:mm:ss dd MMM")}</td>
                   <td className="p-4">{log.sn || "-"}</td>
+                  <td className="p-4 text-xs max-w-[200px] truncate" title={log.path}>{log.path || "-"}</td>
                   <td className="p-4"><span className={`px-2 py-0.5 rounded text-[10px] font-bold ${log.method === 'POST' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}`}>{log.method}</span></td>
                   <td className="p-4">{log.table || "-"}</td>
                   <td className="p-4 font-mono text-[10px] max-w-xl truncate" title={log.body}>{log.body || "-"}</td>
