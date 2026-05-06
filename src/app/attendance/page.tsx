@@ -158,13 +158,24 @@ export default function AttendancePage() {
   const syncAttendance = async () => {
     setSyncing(true);
     try {
-      const res = await fetch("/api/attendance/sync-device", { method: "POST" });
-      if (res.ok) {
-        const data = await res.json();
-        dialog.alert(t("Success"), t("Synced {count} records successfully.", { count: data.summary?.synced || 0 }));
+      // 1. Check for ADMS devices
+      const devicesRes = await fetch("/api/attendance/devices");
+      const devices = await devicesRes.json();
+      const hasADMS = Array.isArray(devices) && devices.some(d => d.serialNumber);
+
+      if (hasADMS) {
+        dialog.alert(t("Automatic Sync"), t("Your biometric devices are in ADMS (Cloud) mode. They push attendance data automatically. If you don't see your data, please wait a few seconds and refresh."));
         fetchAttendance(date);
       } else {
-        dialog.alert(t("Error"), t("Failed to sync attendance from device."));
+        // Legacy Sync Agent Logic
+        const res = await fetch("/api/attendance/sync-device", { method: "POST" });
+        if (res.ok) {
+          const data = await res.json();
+          dialog.alert(t("Success"), t("Synced {count} records successfully.", { count: data.summary?.synced || 0 }));
+          fetchAttendance(date);
+        } else {
+          dialog.alert(t("Error"), t("Failed to sync attendance from device. Check your local sync agent."));
+        }
       }
     } catch (e: any) {
       dialog.alert(t("Error"), e.message);
