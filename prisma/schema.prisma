@@ -330,7 +330,8 @@ model Tenant {
 model AttendanceDevice {
   id          String   @id @default(auto()) @map("_id") @db.ObjectId
   deviceName  String
-  ipAddress   String
+  serialNumber String?  @unique
+  ipAddress   String?
   port        Int      @default(4370)
   status      String   @default("DISCONNECTED") // ACTIVE, DISCONNECTED
   lastSync    DateTime?

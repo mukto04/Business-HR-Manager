@@ -1,25 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
   Plus, 
   Trash2, 
   RefreshCcw, 
   Wifi, 
   WifiOff, 
-  Terminal, 
-  Download, 
-  ShieldCheck, 
   Info,
   ExternalLink,
   Settings2,
   Copy,
   Check,
-  Eye,
-  EyeOff,
-  HelpCircle,
-  AlertCircle,
-  Key
+  ChevronDown,
+  ChevronUp,
+  AlertTriangle,
+  Clock,
+  Smartphone,
+  Server
 } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
@@ -30,72 +28,34 @@ import { sendJson } from "@/lib/http";
 import { useDialog } from "@/components/ui/dialog-provider";
 import { LoadingState } from "@/modules/shared/loading-state";
 import { ErrorState } from "@/modules/shared/error-state";
-import { format } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 import { useTranslation } from "@/hooks/use-translation";
 
 interface AttendanceDevice {
   id: string;
   deviceName: string;
-  ipAddress: string;
-  port: number;
+  serialNumber: string;
+  ipAddress: string | null;
   status: string;
   lastSync: string | null;
   lastSeen: string | null;
   description: string | null;
-  apiKey: string;
   createdAt: string;
 }
 
 export function DeviceSetupClient() {
   const devices = useAsyncData<AttendanceDevice[]>("/api/attendance/devices", []);
-  
-  // Helper to determine if device is online (seen in last 6 minutes)
-  const getDeviceStatus = (device: AttendanceDevice) => {
-    const lastSeen = device.lastSeen ? new Date(device.lastSeen).getTime() : 0;
-    const isOnline = Date.now() - lastSeen < 6 * 60 * 1000; // 6 minutes threshold
-    
-    if (!isOnline) {
-      return { 
-        label: "Offline", 
-        color: "bg-slate-100 text-slate-500", 
-        iconColor: "text-slate-400", 
-        bgColor: "bg-slate-50 border-slate-100",
-        agentStatus: "DISCONNECTED"
-      };
-    }
-    
-    // If agent is seen, check the machine status stored in 'status' field
-    const machineActive = device.status === "ACTIVE";
-    
-    return { 
-      label: machineActive ? "Online" : "Agent Only", 
-      color: machineActive ? "bg-green-500/10 text-green-600" : "bg-blue-500/10 text-blue-600", 
-      iconColor: machineActive ? "text-green-600" : "text-blue-600", 
-      bgColor: machineActive ? "bg-green-50 border-green-100" : "bg-blue-50 border-blue-100",
-      agentStatus: "CONNECTED",
-      machineStatus: machineActive ? "REACHABLE" : "UNREACHABLE"
-    };
-  };
-
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [guideExpanded, setGuideExpanded] = useState(true);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [showApiKeyId, setShowApiKeyId] = useState<string | null>(null);
-  const [setupOS, setSetupOS] = useState<"windows" | "linux">("windows");
-  const [copiedCmd, setCopiedCmd] = useState<string | null>(null);
   
-  function copyCmd(cmd: string) {
-    navigator.clipboard.writeText(cmd);
-    setCopiedCmd(cmd);
-    setTimeout(() => setCopiedCmd(null), 2000);
-  }
   const dialog = useDialog();
   const { t } = useTranslation();
 
   const [formData, setFormData] = useState({
     deviceName: "",
-    ipAddress: "",
-    port: "4370",
+    serialNumber: "",
     description: ""
   });
 
@@ -105,9 +65,9 @@ export function DeviceSetupClient() {
     try {
       await sendJson("/api/attendance/devices", "POST", formData);
       setOpen(false);
-      setFormData({ deviceName: "", ipAddress: "", port: "4370", description: "" });
+      setFormData({ deviceName: "", serialNumber: "", description: "" });
       await devices.refresh();
-      dialog.alert(t("Success"), t("Device added successfully. Please copy the API Key for the sync agent."));
+      dialog.alert(t("Success"), t("Device added successfully. Now configure your device with the ADMS settings shown in the guide."));
     } catch (error: any) {
       dialog.alert(t("Error"), error.message || t("Failed to add device."));
     } finally {
@@ -116,7 +76,7 @@ export function DeviceSetupClient() {
   }
 
   async function deleteDevice(id: string) {
-    const ok = await dialog.danger("Delete Device?", "Are you sure you want to remove this device? The sync agent for this device will stop working.");
+    const ok = await dialog.danger(t("Delete Device?"), t("Are you sure you want to remove this device? Attendance data from this device will no longer be synced."));
     if (!ok) return;
 
     try {
@@ -133,571 +93,315 @@ export function DeviceSetupClient() {
     setTimeout(() => setCopiedId(null), 2000);
   }
 
-  function downloadAgent(device: AttendanceDevice) {
-    const script = `
-/**
- * AppDevs Attendance Sync Agent
- * Device: ${device.deviceName}
- * IP: ${device.ipAddress}
- */
-
-// Configuration
-const HEARTBEAT_URL = "${window.location.origin}/api/attendance/heartbeat";
-const SYNC_URL = "${window.location.origin}/api/attendance/sync-push";
-const API_KEY = "${device.apiKey}";
-const TENANT_SLUG = "${window.location.pathname.split('/').filter(s => s && s !== 'attendance' && s !== 'super-admin' && s !== 'tenants')[0]?.replace('-hr', '') || 'default'}"; // Auto-detected slug
-const DEVICE_IP = "${device.ipAddress}";
-const DEVICE_PORT = ${device.port};
-const SYNC_INTERVAL_MINUTES = 5;
-
-// Requires zklib-js package for modern device support (like F22)
-// Install with: npm install zklib-js axios
-
-const ZKLib = require('zklib-js');
-const axios = require('axios');
-
-async function sendHeartbeat(machineStatus = "DISCONNECTED", error = null) {
-    try {
-        await axios.post(HEARTBEAT_URL, { machineStatus, error }, {
-            headers: { 
-                'x-api-key': API_KEY,
-                'x-tenant-slug': TENANT_SLUG
-            }
-        });
-        console.log(\`[\${new Date().toLocaleString()}] Heartbeat sent: Machine is \${machineStatus}\`);
-    } catch (e) {
-        console.error('Heartbeat failed:', e.response && e.response.data ? e.response.data : e.message);
-    }
-}
-
-async function sync() {
-    let connected = false;
-    let zkInstance = null;
-    
-    // Auto-fallback strategies for modern devices like F22
-    const strategies = [
-        { name: "TCP Default (No Password)", type: "tcp", args: [DEVICE_IP, DEVICE_PORT, 25000, 4000] },
-        { name: "TCP Password = 0 (Number)", type: "tcp", args: [DEVICE_IP, DEVICE_PORT, 25000, 4000, 0] },
-        { name: "TCP Password = '0' (String)", type: "tcp", args: [DEVICE_IP, DEVICE_PORT, 25000, 4000, '0'] },
-        { name: "UDP Protocol (F22 Strict Mode)", type: "udp", args: [DEVICE_IP, DEVICE_PORT, 25000, 4000] }
-    ];
-
-    console.log(\`[\${new Date().toLocaleString()}] Attempting connection to \${DEVICE_IP}...\`);
-
-    for (let i = 0; i < strategies.length; i++) {
-        try {
-            console.log(\`Trying Strategy \${i+1}: \${strategies[i].name}...\`);
-            zkInstance = new ZKLib(...strategies[i].args);
-            
-            if (strategies[i].type === 'tcp') {
-                await zkInstance.createSocket();
-            } else {
-                // Force UDP directly bypassing the faulty TCP fallback in zklib-js
-                await zkInstance.zklibUdp.createSocket();
-                await zkInstance.zklibUdp.connect();
-                zkInstance.connectionType = 'udp';
-            }
-            
-            connected = true;
-            console.log('✅ Connected successfully!');
-            break;
-        } catch (e) {
-            console.log(\`❌ Strategy \${i+1} failed.\`);
-        }
-    }
-
-    if (!connected) {
-        // If all fail, throw error to trigger diagnostics
-        throw new Error('Unknown Connection Error or Timeout');
-    }
-
-    try {
-        console.log('Fetching logs...');
-        const logs = await zkInstance.getAttendances();
-        
-        console.log(\`Syncing \${logs.data.length} logs to SaaS...\`);
-        const response = await axios.post(SYNC_URL, { logs: logs.data }, {
-            headers: { 
-                'x-api-key': API_KEY,
-                'x-tenant-slug': TENANT_SLUG
-            }
-        });
-
-        console.log('Success:', response.data.message);
-        await sendHeartbeat("CONNECTED");
-        
-    } catch (e) {
-        const errMsg = e && e.message ? e.message : 'Unknown Connection Error or Timeout';
-        console.error('Sync process error:', e.response && e.response.data ? e.response.data : errMsg);
-        
-        // Detailed Diagnostics for Troubleshooting
-        if (errMsg.includes('timeout') || errMsg.includes('EHOSTUNREACH') || errMsg === 'Unknown Connection Error or Timeout') {
-            console.log('--- RUNNING ADVANCED RAW TCP TEST ---');
-            const net = require('net');
-            const client = new net.Socket();
-            client.setTimeout(5000);
-            client.connect(DEVICE_PORT, DEVICE_IP, function() {
-                console.log('✅ RAW TCP SUCCESS: Node.js CAN connect to the machine! The issue is within node-zklib protocol compatibility or Comm Key.');
-                client.destroy();
-            });
-            client.on('error', function(err) {
-                console.error('❌ RAW TCP ERROR: Node.js is BLOCKED from connecting! Reason:', err.message);
-                console.log('   -> This means your Windows Firewall or Antivirus is blocking Node.js.');
-            });
-            client.on('timeout', function() {
-                console.error('❌ RAW TCP TIMEOUT: Node.js connection timed out!');
-                console.log('   -> This means a firewall is dropping the connection or the port is closed.');
-                client.destroy();
-            });
-
-            console.log('DIAGNOSTIC: 1. Ensure laptop & machine are on the SAME router.');
-            console.log('DIAGNOSTIC: 2. Check if IP ' + DEVICE_IP + ' is correct on the machine settings.');
-            console.log('DIAGNOSTIC: 3. Try to ping ' + DEVICE_IP + ' from your terminal.');
-            console.log('DIAGNOSTIC: 4. IMPORTANT: Ensure Comm Key is set to 0 in the machine network settings.');
-            console.log('DIAGNOSTIC: 5. Close any other software (like ZKTime) that might be connected to the machine.');
-        } else if (errMsg.includes('ECONNREFUSED')) {
-            console.error('DIAGNOSTIC: Connection Refused. Ensure no other agent is connected to the machine.');
-        }
-        
-        await sendHeartbeat("DISCONNECTED", errMsg);
-    } finally {
-        try { await zkInstance.disconnect(); } catch (e) {}
-    }
-}
-
-console.log('AppDevs Sync Agent V2 Started...');
-console.log('Target Device:', DEVICE_IP + ':' + DEVICE_PORT);
-
-// Run immediately then on interval
-sync();
-setInterval(sync, SYNC_INTERVAL_MINUTES * 60 * 1000);
-    `.trim();
-
-    const blob = new Blob([script], { type: "text/javascript" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `sync-agent-${device.deviceName.replace(/\s+/g, '-').toLowerCase()}.js`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }
-
   if (devices.loading) return <LoadingState />;
   if (devices.error) return <ErrorState message={devices.error} />;
 
+  const serverHost = typeof window !== 'undefined' ? window.location.host : 'aeropark.appdevs.team';
+  const tenantSlug = typeof window !== 'undefined' 
+    ? window.location.pathname.split('/').filter(p => p && p !== 'attendance' && p !== 'setup')[0]?.replace('-hr', '') 
+    : 'demo';
+  const admsUrl = `${serverHost}/api/attendance/adms/${tenantSlug}`;
+
   return (
     <div className="space-y-6">
-      <PageHeader
-        title={t("Attendance Device Setup")}
-        subtitle={t("Manage your physical biometric machines and connect them to the SaaS portal.")}
-        actions={
-          <Button onClick={() => setOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" /> {t("Add New Device")}
-          </Button>
-        }
-      />
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="md:col-span-2 space-y-4">
-          {devices.data.length === 0 ? (
-            <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-3xl p-12 text-center">
-              <div className="bg-slate-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                 <Wifi className="w-8 h-8 text-slate-400" />
-              </div>
-              <h3 className="text-lg font-bold text-slate-900">{t("No Devices Configured")}</h3>
-              <p className="text-slate-500 max-w-sm mx-auto mt-2">
-                Biometric devices must be added here before you can sync attendance data from your office.
-              </p>
-              <Button variant="secondary" className="mt-6" onClick={() => setOpen(true)}>
-                 Register Your First Device
-              </Button>
-            </div>
-          ) : (
-            devices.data.map(device => {
-              const statusInfo = getDeviceStatus(device);
-              return (
-                <div key={device.id} className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm hover:shadow-md transition-shadow group">
-                  <div className="flex flex-col md:flex-row justify-between gap-4">
-                    <div className="flex gap-4">
-                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border-2 ${statusInfo.bgColor} ${statusInfo.iconColor}`}>
-                        {statusInfo.label === 'Online' ? <Wifi className="w-6 h-6" /> : <WifiOff className="w-6 h-6" />}
-                      </div>
-                      <div>
-                        <h3 className="font-bold text-slate-900 text-lg">{device.deviceName}</h3>
-                        <div className="flex items-center gap-3 mt-1">
-                           <span className="text-xs font-mono bg-slate-100 px-2 py-0.5 rounded text-slate-600">{device.ipAddress}:{device.port}</span>
-                           <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${statusInfo.color}`}>
-                             {t(statusInfo.label)}
-                           </span>
-                           {statusInfo.agentStatus === 'CONNECTED' && statusInfo.label === 'Agent Only' && (
-                             <span className="text-[9px] text-blue-500 font-medium italic ml-2">
-                               ({t("Agent Online, Machine Offline")})
-                             </span>
-                           )}
-                        </div>
-                      </div>
-                    </div>
-
-                  <div className="flex items-center gap-2">
-                    <Button variant="secondary" onClick={() => downloadAgent(device)}>
-                       <Download className="mr-2 h-3.5 w-3.5" /> {t("Download Agent")}
-                    </Button>
-                    <Button variant="danger" onClick={() => deleteDevice(device.id)}>
-                       <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="mt-6 pt-6 border-t border-slate-50 grid grid-cols-1 md:grid-cols-2 gap-6">
-                   <div className="space-y-2">
-                      <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">{t("Device API Key (Private)")}</label>
-                      <div className="flex gap-2">
-                         <div className="relative flex-1">
-                            <Input 
-                               readOnly 
-                               value={device.apiKey} 
-                               type={showApiKeyId === device.id ? "text" : "password"}
-                               className="bg-slate-50 font-mono text-xs border-dashed pr-10"
-                             />
-                            <button
-                               type="button"
-                               onClick={() => setShowApiKeyId(showApiKeyId === device.id ? null : device.id)}
-                               className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 transition-colors"
-                            >
-                               {showApiKeyId === device.id ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-                            </button>
-                         </div>
-                         <Button 
-                            variant="secondary" 
-                            onClick={() => copyToClipboard(device.apiKey, device.id)}
-                            className={copiedId === device.id ? "text-green-600 border-green-200 bg-green-50" : ""}
-                          >
-                           {copiedId === device.id ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                         </Button>
-                      </div>
-                      <p className="text-[10px] text-slate-500">This key is required by the sync agent to authenticate your data.</p>
-                   </div>
-                   <div className="flex items-end justify-end text-right">
-                      <div className="space-y-1">
-                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{t("Last Activity")}</div>
-                        <div className="text-sm font-semibold text-slate-700">
-                          {device.lastSync ? format(new Date(device.lastSync), "MMM d, yyyy HH:mm") : t("Never synced")}
-                        </div>
-                      </div>
-                   </div>
-                </div>
-              </div>
-              )
-            })
-          )}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+           <h1 className="text-2xl font-bold text-slate-900">{t("Devices")}</h1>
+           <p className="text-sm text-slate-500">Home • Devices</p>
         </div>
-
-        <div className="space-y-6">
-          <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
-             <div className="flex items-center gap-3 mb-6">
-                <div className="bg-blue-100 p-2 rounded-xl">
-                  <Terminal className="w-5 h-5 text-blue-600" />
-                </div>
-                <h4 className="font-bold text-slate-900">{t("Setup Guide")}</h4>
-             </div>
-             
-             <div className="space-y-8 relative before:absolute before:left-4 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-100">
-                {/* Step 1 */}
-                <div className="relative pl-10">
-                   <div className="absolute left-0 top-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold text-sm shadow-lg shadow-blue-200 z-10">1</div>
-                   <h5 className="font-bold text-slate-800 text-sm mb-1">{t("New Device Configuration")}</h5>
-                   <p className="text-[11px] text-slate-500 mb-3">
-                      {t("First, connect the machine to WiFi. Go to WiFi 'Details' to get the ")} <strong>{t("IP Address")}</strong>. 
-                      {t(" Then go to 'Ethernet Details' to get the ")} <strong>{t("Port")}</strong> (4370). 
-                      <span className="text-amber-600 font-semibold block mt-1">{t("Note: Only use the WiFi IP, not the Ethernet IP.")}</span>
-                   </p>
-                </div>
-
-                {/* Step 2 */}
-                <div className="relative pl-10">
-                   <div className="absolute left-0 top-0 w-8 h-8 bg-white border-2 border-slate-200 text-slate-400 rounded-full flex items-center justify-center font-bold text-sm z-10">2</div>
-                   <h5 className="font-bold text-slate-800 text-sm mb-1">{t("Install Node.js")}</h5>
-                   <p className="text-[11px] text-slate-500 mb-3">{t("Install Node.js on the PC connected to the same router as the biometric device.")}</p>
-                   <a 
-                      href="https://nodejs.org/en/download/prebuilt-installer" 
-                      target="_blank" 
-                      className="inline-flex items-center gap-2 text-[10px] font-bold text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition-colors"
-                   >
-                      <Download className="w-3 h-3" /> Download Node.js <ExternalLink className="w-3 h-3" />
-                   </a>
-                </div>
-
-                {/* Step 3 */}
-                <div className="relative pl-10">
-                   <div className="absolute left-0 top-0 w-8 h-8 bg-white border-2 border-slate-200 text-slate-400 rounded-full flex items-center justify-center font-bold text-sm z-10">3</div>
-                   <h5 className="font-bold text-slate-800 text-sm mb-1">{t("Install Dependencies")}</h5>
-                   <p className="text-[11px] text-slate-500 mb-2">{t("Open CMD or Terminal and run the following command to install required packages:")}</p>
-                   <div className="flex items-center gap-2">
-                      <div className="flex-1 bg-slate-900 rounded-xl px-3 py-2.5 font-mono text-[10px] text-emerald-400">
-                         <span className="text-slate-500">$ </span>npm install node-zklib axios
-                      </div>
-                      <button
-                         onClick={() => copyCmd('npm install node-zklib axios')}
-                         className={`shrink-0 flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-[10px] font-bold transition-all border ${
-                           copiedCmd === 'npm install node-zklib axios'
-                             ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
-                             : 'bg-slate-100 text-slate-500 hover:bg-slate-200 border-slate-200'
-                         }`}
-                      >
-                         {copiedCmd === 'npm install node-zklib axios' ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                         {copiedCmd === 'npm install node-zklib axios' ? 'Copied!' : 'Copy'}
-                      </button>
-                   </div>
-                </div>
-
-                {/* Step 4 */}
-                <div className="relative pl-10">
-                   <div className="absolute left-0 top-0 w-8 h-8 bg-white border-2 border-slate-200 text-slate-400 rounded-full flex items-center justify-center font-bold text-sm z-10">4</div>
-                   <h5 className="font-bold text-slate-800 text-sm mb-1">{t("Download Sync Agent")}</h5>
-                   <p className="text-[11px] text-slate-500 mb-2">{t("From the device card above, click the")}{" "}<strong className="text-blue-600">{t("Download Agent")}</strong>{" "}{t("button to download the pre-configured sync agent file for your device. Save it in a dedicated folder (e.g., C:\\sync-agent\\).")}</p>
-                   <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-xl">
-                      <Download className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                      <p className="text-[10px] text-amber-700 font-medium">{t("The agent file is unique per device — it contains your API key and device IP.")}</p>
-                   </div>
-                </div>
-
-                {/* Step 5 */}
-                <div className="relative pl-10">
-                   <div className="absolute left-0 top-0 w-8 h-8 bg-white border-2 border-slate-200 text-slate-400 rounded-full flex items-center justify-center font-bold text-sm z-10">5</div>
-                   <h5 className="font-bold text-slate-800 text-sm mb-1">{t("Test Connection")}</h5>
-                   <p className="text-[11px] text-slate-500 mb-2">{t("Open CMD inside the folder where you saved the agent file, then run:")}</p>
-                   <div className="flex items-center gap-2">
-                      <div className="flex-1 bg-slate-900 rounded-xl px-3 py-2.5 font-mono text-[10px] text-blue-400">
-                         <span className="text-slate-500">$ </span>node <span className="text-red-400 font-bold">your-agent-filename.js</span>
-                      </div>
-                   </div>
-                   <p className="text-[10px] text-amber-600 font-medium italic mt-1.5">
-                      {t("* Replace 'your-agent-filename.js' with the actual downloaded file name.")}
-                   </p>
-                </div>
-
-                {/* Step 6 */}
-                <div className="relative pl-10">
-                   <div className="flex items-center justify-between gap-4 mb-2">
-                      <div className="flex items-center gap-3">
-                         <h5 className="font-bold text-slate-800 text-sm">{t("Auto-Run (Background)")}</h5>
-                      </div>
-                      <div className="flex bg-slate-100 p-1 rounded-lg shrink-0">
-                         <button 
-                            className={`px-2 py-1 text-[9px] font-black uppercase rounded-md transition-all ${setupOS === 'windows' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500'}`}
-                            onClick={() => setSetupOS('windows')}
-                         >
-                            Windows
-                         </button>
-                         <button 
-                            className={`px-2 py-1 text-[9px] font-black uppercase rounded-md transition-all ${setupOS === 'linux' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500'}`}
-                            onClick={() => setSetupOS('linux')}
-                         >
-                            Linux
-                         </button>
-                      </div>
-                   </div>
-                   <p className="text-[11px] text-slate-500 mb-3 leading-relaxed">
-                      {setupOS === 'windows' 
-                        ? "To run automatically on Windows startup, open CMD as Administrator and run each command:"
-                        : "To keep it running in the background on Linux, use PM2:"}
-                   </p>
-                   
-                   {setupOS === 'windows' ? (
-                     <div className="space-y-2">
-                       {[
-                         { cmd: 'npm install -g qckwinsvc', label: 'Install Windows Service Tool' },
-                         { cmd: 'qckwinsvc', label: 'Register as Windows Service' },
-                       ].map(({ cmd, label }) => (
-                         <div key={cmd}>
-                           <p className="text-[9px] text-slate-400 uppercase tracking-widest mb-1 font-bold">{label}</p>
-                           <div className="flex items-center gap-2">
-                             <div className="flex-1 bg-slate-900 rounded-xl px-3 py-2.5 font-mono text-[10px] text-blue-400">
-                               <span className="text-slate-500">$ </span>{cmd}
-                             </div>
-                             <button
-                               onClick={() => copyCmd(cmd)}
-                               className={`shrink-0 flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-[10px] font-bold transition-all border ${
-                                 copiedCmd === cmd ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-slate-100 text-slate-500 hover:bg-slate-200 border-slate-200'
-                               }`}
-                             >
-                               {copiedCmd === cmd ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                               {copiedCmd === cmd ? 'Copied!' : 'Copy'}
-                             </button>
-                           </div>
-                         </div>
-                       ))}
-                     </div>
-                   ) : (
-                     <div className="space-y-2">
-                       {[
-                         { cmd: 'npm install -g pm2', label: 'Install PM2 Process Manager' },
-                         { cmd: 'pm2 start sync-agent-name.js', label: 'Start Agent in Background' },
-                         { cmd: 'pm2 save', label: 'Save to Auto-Restart on Reboot' },
-                       ].map(({ cmd, label }) => (
-                         <div key={cmd}>
-                           <p className="text-[9px] text-slate-400 uppercase tracking-widest mb-1 font-bold">{label}</p>
-                           <div className="flex items-center gap-2">
-                             <div className="flex-1 bg-slate-900 rounded-xl px-3 py-2.5 font-mono text-[10px] text-indigo-400">
-                               <span className="text-slate-500">$ </span>{cmd}
-                             </div>
-                             <button
-                               onClick={() => copyCmd(cmd)}
-                               className={`shrink-0 flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-[10px] font-bold transition-all border ${
-                                 copiedCmd === cmd ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-slate-100 text-slate-500 hover:bg-slate-200 border-slate-200'
-                               }`}
-                             >
-                               {copiedCmd === cmd ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                               {copiedCmd === cmd ? 'Copied!' : 'Copy'}
-                             </button>
-                           </div>
-                         </div>
-                       ))}
-                     </div>
-                   )}
-                </div>
-             </div>
-
-             {/* Troubleshooting & Help - Modernized */}
-             <div className="mt-12 p-6 bg-slate-50 rounded-2xl border border-slate-100">
-                <div className="flex items-center gap-3 mb-6">
-                   <div className="w-8 h-8 bg-amber-100 text-amber-600 rounded-lg flex items-center justify-center">
-                      <HelpCircle className="w-5 h-5" />
-                   </div>
-                   <div>
-                      <h5 className="font-bold text-slate-900 text-sm">{t("Troubleshooting & Help")}</h5>
-                      <p className="text-[10px] text-slate-500">{t("Solve common connection and sync issues")}</p>
-                   </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                   <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
-                      <div className="flex items-center gap-2 mb-2 text-amber-600">
-                         <WifiOff className="w-3.5 h-3.5" />
-                         <span className="text-[11px] font-bold">{t("Connection Failed")}</span>
-                      </div>
-                      <p className="text-[10px] text-slate-500 leading-relaxed">
-                         {t("Ensure PC and Machine are on the SAME router. Try to 'ping' the machine IP from your terminal to verify visibility.")}
-                      </p>
-                   </div>
-
-                   <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
-                      <div className="flex items-center gap-2 mb-2 text-rose-600">
-                         <AlertCircle className="w-3.5 h-3.5" />
-                         <span className="text-[11px] font-bold">{t("Subnet Mismatch")}</span>
-                      </div>
-                      <p className="text-[10px] text-slate-500 leading-relaxed">
-                         {t("PC IP series must match Machine (e.g. 192.168.1.x). If they differ, use DHCP on the machine to auto-resolve.")}
-                      </p>
-                   </div>
-
-                   <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
-                      <div className="flex items-center gap-2 mb-2 text-blue-600">
-                         <Key className="w-3.5 h-3.5" />
-                         <span className="text-[11px] font-bold">{t("Invalid API Key (401)")}</span>
-                      </div>
-                      <p className="text-[10px] text-slate-500 leading-relaxed">
-                         {t("This means your agent file is outdated. Please delete old files and download the LATEST agent from this page.")}
-                      </p>
-                   </div>
-
-                   <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
-                      <div className="flex items-center gap-2 mb-2 text-emerald-600">
-                         <ShieldCheck className="w-3.5 h-3.5" />
-                         <span className="text-[11px] font-bold">{t("Comm Key / Password")}</span>
-                      </div>
-                      <p className="text-[10px] text-slate-500 leading-relaxed">
-                         {t("Ensure 'Comm Key' is set to '0' in machine network settings. Otherwise, the agent will be blocked from connecting.")}
-                      </p>
-                   </div>
-                </div>
-             </div>
-
-             <div className="mt-8 pt-6 border-t border-slate-100">
-                <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 flex gap-3">
-                   <div className="bg-blue-100 p-2 rounded-xl h-fit">
-                      <ShieldCheck className="w-4 h-4 text-blue-600" />
-                   </div>
-                   <div className="space-y-1">
-                      <h6 className="text-[11px] font-bold text-blue-800 uppercase tracking-wider">{t("Device API Key")}</h6>
-                      <p className="text-[10px] text-blue-700 leading-relaxed">
-                        This key acts as a secure identity token. It ensures that only data from your specific machine is accepted by the SaaS server. <strong>Never share this key with anyone.</strong>
-                      </p>
-                   </div>
-                </div>
-             </div>
-          </div>
-
-          <div className="bg-slate-900 rounded-3xl p-6 text-white overflow-hidden relative shadow-2xl shadow-slate-900/20">
-             <Settings2 className="absolute -right-4 -bottom-4 w-32 h-32 text-white/5 rotate-12" />
-             <div className="relative z-10">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="bg-blue-500/20 p-2 rounded-xl">
-                    <Wifi className="w-5 h-5 text-blue-400" />
-                  </div>
-                  <h4 className="font-bold">{t("Sync Technology")}</h4>
-                </div>
-                <p className="text-[11px] text-slate-400 leading-relaxed mb-4">
-                   Our "Push-Sync" model eliminates the need for Static IP or Port Forwarding. All communication is E2E encrypted via HTTPS.
-                </p>
-                <div className="flex items-center gap-2 text-blue-400 text-[10px] font-bold uppercase tracking-widest">
-                   <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></div>
-                   {t("Ready to connect")}
-                </div>
-             </div>
-          </div>
+        <div className="flex gap-2">
+           <Button variant="secondary" className="bg-white border-slate-200">
+             <RefreshCcw className="mr-2 h-4 w-4" /> {t("Refresh")}
+           </Button>
         </div>
       </div>
 
-      <Modal open={open} onClose={() => setOpen(false)} title="Register Biometric Device">
-         <form onSubmit={handleAddDevice} className="space-y-4">
-            <div className="space-y-2">
-               <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Device Name</label>
-               <Input 
-                  required 
-                  placeholder="Main Office (Ground Floor)" 
-                  value={formData.deviceName}
-                  onChange={e => setFormData({...formData, deviceName: e.target.value})}
-               />
+      <div className="flex flex-wrap gap-3">
+        <Button onClick={() => setOpen(true)} className="bg-blue-600 hover:bg-blue-700">
+          <Plus className="mr-2 h-4 w-4" /> {t("Add Biometric Device")}
+        </Button>
+        <Button variant="outline" className="border-slate-300">
+          <Smartphone className="mr-2 h-4 w-4 text-slate-500" /> {t("Push Employees To Devices")}
+        </Button>
+      </div>
+
+      {/* Device Configuration Guide */}
+      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+        <button 
+          onClick={() => setGuideExpanded(!guideExpanded)}
+          className="w-full flex items-center justify-between p-4 hover:bg-slate-50 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <Settings2 className="w-5 h-5 text-slate-600" />
+            <span className="font-bold text-slate-800">{t("Device Configuration Guide")}</span>
+            <span className="text-xs text-slate-400 font-medium ml-2">{guideExpanded ? "Click to Collapse" : "Click to Expand"}</span>
+          </div>
+          {guideExpanded ? <ChevronUp className="w-5 h-5 text-slate-400" /> : <ChevronDown className="w-5 h-5 text-slate-400" />}
+        </button>
+        
+        {guideExpanded && (
+          <div className="p-6 border-t border-slate-100 space-y-6">
+            <div className="bg-amber-50 border border-amber-100 rounded-lg p-4 flex gap-3">
+              <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
+              <p className="text-sm text-amber-800 leading-relaxed">
+                <strong>Important Note:</strong> This configuration supports almost all <strong>ZKTeco</strong> devices that have <strong>ADMS</strong> or <strong>Cloud Server Settings</strong> capability.
+              </p>
             </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-               <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">{t("IP Address")}</label>
-                  <Input 
-                     required 
-                     placeholder="192.168.1.201" 
-                     value={formData.ipAddress}
-                     onChange={e => setFormData({...formData, ipAddress: e.target.value})}
-                  />
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+               <div className="space-y-6">
+                  <div className="flex gap-4">
+                     <div className="w-8 h-8 bg-green-100 text-green-600 rounded-full flex items-center justify-center shrink-0">
+                        <Check className="w-5 h-5" />
+                     </div>
+                     <div>
+                        <h4 className="font-bold text-slate-900 mb-1">{t("Check Device ADMS Support")}</h4>
+                        <p className="text-sm text-slate-500">Your ZKTeco must support ADMS mode. Look for "ADMS" or "Cloud Server Settings" in the menu or manual.</p>
+                     </div>
+                  </div>
+
+                  <div className="flex gap-4">
+                     <div className="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center shrink-0">
+                        <Settings2 className="w-5 h-5" />
+                     </div>
+                     <div className="flex-1">
+                        <h4 className="font-bold text-slate-900 mb-1">{t("Configure ADMS Settings")}</h4>
+                        <p className="text-sm text-slate-500 mb-4">Steps: 1. Menu → 2. Communication → 3. Cloud Server Settings</p>
+                        
+                        <div className="space-y-3">
+                           {[
+                             { label: "Server Mode", value: "ADMS" },
+                             { label: "Enable Domain Name", value: "ON" },
+                             { label: "Server Address", value: admsUrl, copyable: true },
+                             { label: "Enable Proxy Server", value: "OFF" },
+                             { label: "HTTPS", value: "ON (depends on your server)" }
+                           ].map((item) => (
+                             <div key={item.label} className="flex items-center justify-between border-b border-slate-50 pb-2">
+                                <span className="text-sm text-slate-600">{item.label}</span>
+                                <div className="flex items-center gap-2">
+                                   <span className="text-sm font-bold text-slate-900">{item.value}</span>
+                                   {item.copyable && (
+                                     <button 
+                                       onClick={() => copyToClipboard(item.value, 'adms-url')}
+                                       className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-blue-600 transition-colors"
+                                     >
+                                       {copiedId === 'adms-url' ? <Check className="w-3 h-3 text-green-600" /> : <Copy className="w-3 h-3" />}
+                                     </button>
+                                   )}
+                                </div>
+                             </div>
+                           ))}
+                        </div>
+
+                        <div className="mt-6 p-4 bg-cyan-50 border border-cyan-100 rounded-lg">
+                           <p className="text-sm text-cyan-800">
+                             <strong>Note:</strong> After adding your device, simply clock in using your device so that it recognizes your system.
+                           </p>
+                        </div>
+                     </div>
+                  </div>
                </div>
+
+               <div className="relative rounded-xl overflow-hidden border border-slate-200 bg-slate-900 p-4 shadow-xl">
+                  <div className="flex items-center justify-between mb-4">
+                     <div className="flex gap-1.5">
+                        <div className="w-3 h-3 rounded-full bg-red-500" />
+                        <div className="w-3 h-3 rounded-full bg-amber-500" />
+                        <div className="w-3 h-3 rounded-full bg-green-500" />
+                     </div>
+                     <span className="text-[10px] text-slate-400 font-mono tracking-widest uppercase">Cloud Server Setting</span>
+                  </div>
+                  <div className="bg-slate-800 rounded-lg p-6 space-y-4 font-sans border border-slate-700">
+                     <div className="flex justify-between items-center border-b border-slate-700 pb-3">
+                        <span className="text-amber-400 text-sm font-bold">Server Mode</span>
+                        <span className="text-white text-sm font-bold">ADMS</span>
+                     </div>
+                     <div className="flex justify-between items-center border-b border-slate-700 pb-3">
+                        <span className="text-slate-300 text-sm">Enable Domain Name</span>
+                        <div className="w-12 h-6 bg-blue-600 rounded-full flex items-center justify-end px-1 relative">
+                           <span className="text-[9px] text-white font-bold absolute left-2">ON</span>
+                           <div className="w-4 h-4 bg-white rounded-full" />
+                        </div>
+                     </div>
+                     <div className="flex flex-col gap-1 border-b border-slate-700 pb-3">
+                        <span className="text-slate-300 text-sm">Server Address</span>
+                        <span className="text-amber-400 text-xs font-mono">{admsUrl}</span>
+                     </div>
+                     <div className="flex justify-between items-center border-b border-slate-700 pb-3">
+                        <span className="text-slate-300 text-sm">Enable Proxy Server</span>
+                        <div className="w-12 h-6 bg-slate-600 rounded-full flex items-center justify-start px-1 relative">
+                           <span className="text-[9px] text-slate-400 font-bold absolute right-2">OFF</span>
+                           <div className="w-4 h-4 bg-white rounded-full" />
+                        </div>
+                     </div>
+                     <div className="flex justify-between items-center">
+                        <span className="text-slate-300 text-sm">HTTPS</span>
+                        <div className="w-12 h-6 bg-blue-600 rounded-full flex items-center justify-end px-1 relative">
+                           <span className="text-[9px] text-white font-bold absolute left-2">ON</span>
+                           <div className="w-4 h-4 bg-white rounded-full" />
+                        </div>
+                     </div>
+                  </div>
+               </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Waiting for Connection Alert */}
+      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-4 animate-pulse">
+         <div className="relative">
+            <RefreshCcw className="w-6 h-6 text-amber-600 animate-spin" />
+         </div>
+         <div>
+            <h5 className="font-bold text-amber-900 text-sm flex items-center gap-2">
+               <Clock className="w-4 h-4" /> {t("Waiting for Device Connection")}
+            </h5>
+            <p className="text-xs text-amber-800">
+               Please perform a clock in/out action on your biometric device to establish the connection. The device status will update automatically once connected.
+            </p>
+         </div>
+      </div>
+
+      {/* Device List Table */}
+      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+         <table className="w-full text-left border-collapse">
+            <thead className="bg-slate-50 border-b border-slate-200">
+               <tr>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">{t("Device Name")}</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">{t("Serial Number")}</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">{t("Device IP")}</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">{t("Last Online")}</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">{t("Status")}</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">{t("Actions")}</th>
+               </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+               {devices.data.length === 0 ? (
+                 <tr>
+                    <td colSpan={6} className="px-6 py-12 text-center text-slate-500 italic">
+                       {t("No devices added yet. Click 'Add Biometric Device' to begin.")}
+                    </td>
+                 </tr>
+               ) : (
+                 devices.data.map(device => (
+                   <tr key={device.id} className="hover:bg-slate-50 transition-colors group">
+                      <td className="px-6 py-4">
+                         <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+                               <Smartphone className="w-4 h-4" />
+                            </div>
+                            <span className="font-semibold text-slate-900">{device.deviceName}</span>
+                         </div>
+                      </td>
+                      <td className="px-6 py-4 font-mono text-sm text-slate-600">{device.serialNumber}</td>
+                      <td className="px-6 py-4 text-sm text-slate-600">{device.ipAddress || "—"}</td>
+                      <td className="px-6 py-4">
+                         {device.lastSeen ? (
+                            <div className="space-y-0.5">
+                               <div className="text-sm font-medium text-slate-900">{formatDistanceToNow(new Date(device.lastSeen), { addSuffix: true })}</div>
+                               <div className="text-[10px] text-slate-400">{format(new Date(device.lastSeen), "dd MMMM yyyy HH:mm a")}</div>
+                            </div>
+                         ) : (
+                            <span className="text-sm text-slate-400">—</span>
+                         )}
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                         <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest ${
+                            device.status === 'ACTIVE' 
+                              ? 'bg-green-100 text-green-700' 
+                              : 'bg-slate-100 text-slate-500'
+                         }`}>
+                            {t(device.status === 'ACTIVE' ? 'Online' : 'Pending')}
+                         </span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                         <div className="flex justify-end gap-2">
+                            <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={() => deleteDevice(device.id)}>
+                               <Trash2 className="h-4 w-4 text-slate-400 hover:text-red-600" />
+                            </Button>
+                         </div>
+                      </td>
+                   </tr>
+                 ))
+               )}
+            </tbody>
+         </table>
+      </div>
+
+      {/* Add Device Modal */}
+      <Modal open={open} onClose={() => setOpen(false)} title={t("Add Biometric Device")} size="lg">
+         <form onSubmit={handleAddDevice} className="space-y-6">
+            <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
+               <div className="flex items-center gap-2 mb-4 text-slate-900 font-bold">
+                  <Info className="w-5 h-5 text-blue-600" /> {t("How to Find Your Device Serial Number")}
+               </div>
+               
+               <div className="bg-cyan-50 border border-cyan-100 rounded-lg p-3 text-xs text-cyan-800 mb-6">
+                  <strong>Note:</strong> The serial number can be found in your device by navigating to <strong>Menu -&gt; System Info -&gt; Device Info</strong>
+               </div>
+
+               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2 text-center">
+                     <div className="aspect-video bg-slate-200 rounded-lg border border-slate-300 flex items-center justify-center overflow-hidden">
+                        <img src="/assets/images/zk-step-1.png" alt="Step 1" className="w-full h-full object-cover" />
+                     </div>
+                     <p className="text-[10px] font-medium text-slate-600">Step 1: Access the Menu</p>
+                  </div>
+                  <div className="space-y-2 text-center">
+                     <div className="aspect-video bg-slate-200 rounded-lg border border-slate-300 flex items-center justify-center overflow-hidden">
+                        <img src="/assets/images/zk-step-2.png" alt="Step 2" className="w-full h-full object-cover" />
+                     </div>
+                     <p className="text-[10px] font-medium text-slate-600">Step 2: Select System Info</p>
+                  </div>
+                  <div className="space-y-2 text-center">
+                     <div className="aspect-video bg-slate-200 rounded-lg border border-slate-300 flex items-center justify-center overflow-hidden">
+                        <img src="/assets/images/zk-step-3.png" alt="Step 3" className="w-full h-full object-cover" />
+                     </div>
+                     <p className="text-[10px] font-medium text-slate-600">Step 3: Find Serial Number in Device Info</p>
+                  </div>
+               </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">{t("Port")}</label>
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">{t("Device Name")} <span className="text-red-500">*</span></label>
                   <Input 
                      required 
-                     type="number" 
-                     placeholder="4370" 
-                     value={formData.port}
-                     onChange={e => setFormData({...formData, port: e.target.value})}
+                     placeholder="e.g. ZKTeco iClock, Anviz VF30 etc." 
+                     value={formData.deviceName}
+                     onChange={e => setFormData({...formData, deviceName: e.target.value})}
                   />
+                  <p className="text-[10px] text-slate-400">Provide a unique identifiable name for this device.</p>
+               </div>
+               
+               <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">{t("Serial Number")} <span className="text-red-500">*</span></label>
+                  <Input 
+                     required 
+                     placeholder="e.g. GED7241800000" 
+                     value={formData.serialNumber}
+                     onChange={e => setFormData({...formData, serialNumber: e.target.value})}
+                  />
+                  <p className="text-[10px] text-slate-400">Enter the device serial number exactly as shown on the device label.</p>
                </div>
             </div>
 
             <div className="space-y-2">
-               <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">{t("Description")}</label>
+               <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">{t("Description")}</label>
                <Input 
-                  placeholder="ZKTeco F22 on front desk" 
+                  placeholder="e.g. Reception Desk Device" 
                   value={formData.description}
                   onChange={e => setFormData({...formData, description: e.target.value})}
                />
             </div>
 
-            <div className="pt-4 flex justify-end gap-3">
-               <Button type="button" variant="secondary" onClick={() => setOpen(false)}>{t("Cancel")}</Button>
-               <Button type="submit" disabled={loading}>
-                 {loading ? t("Adding...") : t("Register Device")}
+            <div className="pt-4 flex justify-start gap-3">
+               <Button type="submit" disabled={loading} className="bg-blue-600 hover:bg-blue-700 px-8">
+                 {loading ? t("Saving...") : t("Save")}
+               </Button>
+               <Button type="button" variant="secondary" onClick={() => setOpen(false)} className="bg-white border-slate-200">
+                  {t("Cancel")}
                </Button>
             </div>
          </form>

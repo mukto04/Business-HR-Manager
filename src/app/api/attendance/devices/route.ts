@@ -29,7 +29,8 @@ export async function POST(request: NextRequest) {
     const device = await prisma.attendanceDevice.create({
       data: {
         deviceName: data.deviceName,
-        ipAddress: data.ipAddress,
+        serialNumber: data.serialNumber,
+        ipAddress: data.ipAddress || null,
         port: parseInt(data.port) || 4370,
         description: data.description,
         apiKey: randomUUID(),
@@ -52,7 +53,8 @@ export async function PUT(request: NextRequest) {
       where: { id: data.id },
       data: {
         deviceName: data.deviceName,
-        ipAddress: data.ipAddress,
+        serialNumber: data.serialNumber,
+        ipAddress: data.ipAddress || null,
         port: parseInt(data.port) || 4370,
         description: data.description,
         status: data.status
