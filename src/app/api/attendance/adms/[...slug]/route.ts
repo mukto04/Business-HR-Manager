@@ -44,7 +44,6 @@ export async function GET(
     console.error("ADMS GET Error:", err);
   }
 
-  // respond with OK to everything
   return new NextResponse("OK", {
     headers: { "Content-Type": "text/plain" }
   });
@@ -67,24 +66,22 @@ export async function POST(
     const prisma = await getPrismaBySlug(tenantSlug);
     const body = await request.text();
 
-    // DEBUG LOG - Capture raw push data
+    // DEBUG LOG
     await (prisma as any).admsLog.create({
       data: { sn, table: table || "NONE", path: fullUrl, body: body.substring(0, 1000), method: "POST" }
     });
 
-    // Handle Registration (if body contains DeviceType and table is NONE)
+    // Handle Registration
     if (body.includes("DeviceType=") && (!table || table === "NONE")) {
-        console.log(`ADMS [${tenantSlug}] Registration from ${sn}`);
-        // Return a more complete registry response for F22
         return new NextResponse("RegistryCode=3985793847593\r\nServerVersion=2.4.1\r\nServerName=ADMS\r\nPushVersion=2.0.335\r\nOK\r\n", { 
             headers: { "Content-Type": "text/plain" } 
         });
     }
 
-    // Handle ATTLOG (Attendance) or EVENT (Access Control)
-    const isAttendance = table === "ATTLOG" || table === "EVENT" || body.includes("ATTLOG") || body.includes("EVENT");
+    // Handle Logs (ATTLOG, EVENT, RTLOG)
+    const isLog = table === "ATTLOG" || table === "EVENT" || table === "rtlog" || body.includes("pin=");
     
-    if (isAttendance) {
+    if (isLog) {
       const lines = body.split("\n").filter(l => l.trim().length > 0);
       
       const settings = await prisma.tenantSettings.findFirst();
@@ -95,30 +92,52 @@ export async function POST(
 
       let processedCount = 0;
       for (const line of lines) {
-        // ZKTeco format can be tab or space separated
-        const parts = line.trim().split(/\s+/);
-        if (parts.length < 2) continue;
+        let employeeCodeRaw = "";
+        let dateStr = "";
+        let timeStr = "";
 
-        const employeeCodeRaw = parts[0];
-        let dateStr = parts[1]; 
-        let timeStr = parts[2];
-
-        // Flexible date finding (EVENT table might have more columns)
-        if (!dateStr || !dateStr.includes("-")) {
-            const potentialDate = parts.find(p => p.includes("-") && p.split("-").length === 3);
-            if (potentialDate) {
-                const idx = parts.indexOf(potentialDate);
-                dateStr = potentialDate;
-                timeStr = parts[idx + 1];
+        // Check if it's Key-Value format (F22 real-time log)
+        if (line.includes("pin=") && line.includes("time=")) {
+            const pairs = line.trim().split(/\s+/);
+            const data: any = {};
+            pairs.forEach(p => {
+                const [k, v] = p.split("=");
+                if (k && v) data[k] = v;
+                // Special case for time because it contains a space: time=2024-05-06 16:12:24
+                // But the split(/\s+/) might have broken it.
+            });
+            
+            // Re-parsing time if broken
+            const timeMatch = line.match(/time=([\d-]+\s[\d:]+)/);
+            const fullTimeStr = timeMatch ? timeMatch[1] : "";
+            
+            employeeCodeRaw = data.pin;
+            if (fullTimeStr) {
+                [dateStr, timeStr] = fullTimeStr.split(" ");
+            }
+        } else {
+            // Tab/Space separated format (Standard ATTLOG)
+            const parts = line.trim().split(/\s+/);
+            if (parts.length < 2) continue;
+            employeeCodeRaw = parts[0];
+            dateStr = parts[1]; 
+            timeStr = parts[2];
+            
+            if (!dateStr || !dateStr.includes("-")) {
+                const potentialDate = parts.find(p => p.includes("-") && p.split("-").length === 3);
+                if (potentialDate) {
+                    const idx = parts.indexOf(potentialDate);
+                    dateStr = potentialDate;
+                    timeStr = parts[idx + 1];
+                }
             }
         }
         
-        if (!dateStr || !timeStr) continue;
+        if (!employeeCodeRaw || !dateStr || !timeStr) continue;
 
-        // BDT Midnight (UTC+6) = 18:00 UTC previous day
+        // BDT Midnight (UTC+6)
         const dParts = dateStr.split("-");
         const dateOnly = new Date(Date.UTC(parseInt(dParts[0]), parseInt(dParts[1]) - 1, parseInt(dParts[2]), -6, 0, 0, 0));
-        
         const punchTime = new Date(`${dateStr}T${timeStr}`);
         if (isNaN(punchTime.getTime())) continue;
 
@@ -169,7 +188,6 @@ export async function POST(
           processedCount++;
         }
       }
-      console.log(`ADMS [${tenantSlug}] Processed ${processedCount} logs.`);
       return new NextResponse("OK", { headers: { "Content-Type": "text/plain" } });
     }
 
