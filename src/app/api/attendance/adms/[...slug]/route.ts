@@ -21,8 +21,31 @@ export async function GET(
 
   console.log(`ADMS GET [${tenantSlug}]: ${path} | SN: ${sn}`);
 
+  // Update device status if SN is provided
+  if (sn) {
+    try {
+      const prisma = await getPrismaBySlug(tenantSlug);
+      const device = await prisma.attendanceDevice.findUnique({
+        where: { serialNumber: sn }
+      });
+
+      if (device) {
+        await prisma.attendanceDevice.update({
+          where: { id: device.id },
+          data: { 
+            lastSeen: new Date(),
+            status: "ACTIVE",
+            ipAddress: request.headers.get("x-forwarded-for") || (request as any).ip || "unknown"
+          }
+        });
+      }
+    } catch (err) {
+      console.error("ADMS GET Status Update Error:", err);
+    }
+  }
+
   // 1. Handshake / Initialization
-  if (path === "iclock/cdata") {
+  if (path === "iclock/cdata" || path === "") {
     return new NextResponse("OK", {
       headers: { "Content-Type": "text/plain" }
     });
