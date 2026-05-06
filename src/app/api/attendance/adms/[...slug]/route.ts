@@ -76,7 +76,7 @@ export async function POST(
               lastSeen: new Date(),
               lastSync: new Date(),
               status: "ACTIVE",
-              ipAddress: request.headers.get("x-forwarded-for") || request.ip || "unknown"
+              ipAddress: request.headers.get("x-forwarded-for") || (request as any).ip || "unknown"
             }
           });
         }
