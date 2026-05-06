@@ -88,15 +88,15 @@ export default function SalaryIncrementPage() {
   };
 
   return (
-    <div className="p-4 lg:p-8 space-y-6 max-w-7xl mx-auto">
+    <div className="p-4 lg:p-6 space-y-6 w-full">
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-            <TrendingUp className="w-6 h-6 text-brand-600" />
+          <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+            <TrendingUp className="w-5 h-5 text-brand-600" />
             {t("Salary Increment Management")}
           </h1>
-          <p className="text-slate-500 text-sm">{t("Track and manage employee salary evolution and increments")}</p>
+          <p className="text-slate-500 text-xs">{t("Track and manage employee salary evolution and increments")}</p>
         </div>
         <div className="flex items-center gap-2">
           <Button 
@@ -104,91 +104,90 @@ export default function SalaryIncrementPage() {
               setSelectedEmployees([]);
               setIsModalOpen(true);
             }}
-            className="rounded-2xl bg-brand-600 hover:bg-brand-700 h-11 px-6 shadow-lg shadow-brand-900/20"
+            className="rounded-xl bg-brand-600 hover:bg-brand-700 h-9 px-4 text-xs font-bold shadow-md shadow-brand-900/10"
           >
-            <Plus className="w-4 h-4 mr-2" />
+            <Plus className="w-3.5 h-3.5 mr-2" />
             {t("Bulk Increment")}
           </Button>
         </div>
       </div>
 
       {/* Tabs & Search */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-2 rounded-3xl border border-slate-100 shadow-sm">
-        <div className="flex p-1 bg-slate-100 rounded-2xl w-full sm:w-auto">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-2 rounded-2xl border border-slate-100 shadow-sm">
+        <div className="flex p-1 bg-slate-100 rounded-xl w-full sm:w-auto">
           <button
             onClick={() => setTab("ACTIVE")}
-            className={`flex-1 sm:flex-none px-6 py-2 rounded-xl text-sm font-bold transition ${tab === "ACTIVE" ? "bg-white text-brand-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+            className={`flex-1 sm:flex-none px-4 py-1.5 rounded-lg text-xs font-bold transition ${tab === "ACTIVE" ? "bg-white text-brand-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
           >
             {t("Active Employees")}
           </button>
           <button
             onClick={() => setTab("DEACTIVE")}
-            className={`flex-1 sm:flex-none px-6 py-2 rounded-xl text-sm font-bold transition flex items-center justify-center gap-2 ${tab === "DEACTIVE" ? "bg-white text-brand-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+            className={`flex-1 sm:flex-none px-4 py-1.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-2 ${tab === "DEACTIVE" ? "bg-white text-brand-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
           >
-            <History className="w-4 h-4" />
+            <History className="w-3.5 h-3.5" />
             {t("History (Deactive)")}
           </button>
         </div>
 
-        <div className="relative w-full sm:w-72">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+        <div className="relative w-full sm:w-64">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
           <Input 
             placeholder={t("Search by name or ID...")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-10 rounded-2xl border-slate-200 h-11 focus:ring-brand-500"
+            className="pl-9 rounded-xl border-slate-200 h-9 text-xs focus:ring-brand-500"
           />
         </div>
       </div>
 
       {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-         <Card className="p-6 rounded-[2rem] border-none bg-brand-50 flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-brand-600 flex items-center justify-center text-white shadow-lg shadow-brand-900/20">
-              <TrendingUp className="w-6 h-6" />
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+         <Card className="p-4 rounded-2xl border-none bg-brand-50 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-brand-600 flex items-center justify-center text-white shadow-md shadow-brand-900/10">
+              <TrendingUp className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-brand-600/60">{t("Total Active")}</p>
-              <h3 className="text-2xl font-black text-brand-900">{employees.filter(e => e.status === "ACTIVE").length}</h3>
+              <p className="text-[9px] font-black uppercase tracking-widest text-brand-600/60">{t("Total Active")}</p>
+              <h3 className="text-xl font-black text-brand-900">{employees.filter(e => e.status === "ACTIVE").length}</h3>
             </div>
          </Card>
-         {/* Add more stats if needed */}
       </div>
 
       {/* Main Table */}
-      <Card className="rounded-[2rem] border-none shadow-xl shadow-slate-200/50 overflow-hidden bg-white">
+      <Card className="rounded-2xl border-none shadow-lg shadow-slate-200/50 overflow-hidden bg-white">
         <div className="overflow-x-auto overflow-y-visible">
-          <table className="w-full text-sm text-left">
+          <table className="w-full text-xs text-left">
             <thead>
               <tr className="bg-slate-50/50 border-b border-slate-100">
-                <th className="p-5 w-12 text-center">
+                <th className="p-4 w-10 text-center">
                   <input 
                     type="checkbox" 
-                    className="rounded-lg border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer"
+                    className="rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer"
                     checked={selectedEmployees.length > 0 && selectedEmployees.length === filteredEmployees.length}
                     onChange={selectAll}
                   />
                 </th>
-                <th className="p-5 font-bold text-slate-500 uppercase tracking-widest text-[10px]">{t("Employee Details")}</th>
-                <th className="p-5 font-bold text-slate-500 uppercase tracking-widest text-[10px]">{t("Starting Salary")}</th>
-                <th className="p-5 font-bold text-slate-500 uppercase tracking-widest text-[10px]">{t("Increments")}</th>
-                <th className="p-5 font-bold text-slate-500 uppercase tracking-widest text-[10px]">{t("Current Salary")}</th>
-                <th className="p-5 font-bold text-slate-500 uppercase tracking-widest text-[10px] text-right">{t("Actions")}</th>
+                <th className="p-4 font-bold text-slate-500 uppercase tracking-widest text-[9px]">{t("Employee Details")}</th>
+                <th className="p-4 font-bold text-slate-500 uppercase tracking-widest text-[9px]">{t("Starting Salary")}</th>
+                <th className="p-4 font-bold text-slate-500 uppercase tracking-widest text-[9px]">{t("Increments")}</th>
+                <th className="p-4 font-bold text-slate-500 uppercase tracking-widest text-[9px]">{t("Current Salary")}</th>
+                <th className="p-4 font-bold text-slate-500 uppercase tracking-widest text-[9px] text-right">{t("Actions")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
               {loading ? (
                 Array(5).fill(0).map((_, i) => (
                   <tr key={i} className="animate-pulse">
-                    <td colSpan={6} className="p-5"><div className="h-12 bg-slate-100 rounded-2xl w-full"></div></td>
+                    <td colSpan={6} className="p-4"><div className="h-10 bg-slate-100 rounded-xl w-full"></div></td>
                   </tr>
                 ))
               ) : filteredEmployees.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-20 text-center text-slate-400">
-                    <div className="flex flex-col items-center gap-3">
-                      <TrendingUp className="w-12 h-12 text-slate-200" />
-                      <p>{t("No employees found.")}</p>
+                  <td colSpan={6} className="p-12 text-center text-slate-400">
+                    <div className="flex flex-col items-center gap-2">
+                      <TrendingUp className="w-10 h-10 text-slate-100" />
+                      <p className="text-[10px] font-bold uppercase tracking-widest">{t("No employees found.")}</p>
                     </div>
                   </td>
                 </tr>
@@ -199,50 +198,47 @@ export default function SalaryIncrementPage() {
                 
                 return (
                   <tr key={emp.id} className="hover:bg-slate-50/80 transition-colors group">
-                    <td className="p-5 text-center">
+                    <td className="p-4 text-center">
                       <input 
                         type="checkbox" 
-                        className="rounded-lg border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer"
+                        className="rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer"
                         checked={selectedEmployees.includes(emp.id)}
                         onChange={() => toggleSelection(emp.id)}
                       />
                     </td>
-                    <td className="p-5">
+                    <td className="p-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-2xl bg-slate-100 flex items-center justify-center font-bold text-slate-600">
+                        <div className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center font-bold text-slate-600 text-[10px]">
                           {emp.name.charAt(0)}
                         </div>
                         <div>
                           <p className="font-bold text-slate-900 group-hover:text-brand-600 transition-colors">{emp.name}</p>
-                          <p className="text-[10px] text-slate-500 uppercase tracking-widest">{emp.employeeCode}</p>
+                          <p className="text-[9px] text-slate-500 uppercase tracking-widest">{emp.employeeCode}</p>
                         </div>
                       </div>
                     </td>
-                    <td className="p-5">
+                    <td className="p-4">
                       <p className="font-bold text-slate-700">{formatCurrency(startSalary)}</p>
-                      <p className="text-[10px] text-slate-400 uppercase">{t("Joined")} {format(new Date(emp.joiningDate), "MMM yyyy")}</p>
+                      <p className="text-[9px] text-slate-400 uppercase">{t("Joined")} {format(new Date(emp.joiningDate), "MMM yyyy")}</p>
                     </td>
-                    <td className="p-5">
-                      <div className="flex flex-wrap gap-1 max-w-[200px]">
+                    <td className="p-4">
+                      <div className="flex flex-wrap gap-1 max-w-[180px]">
                         {emp.increments?.length === 0 ? (
-                          <span className="text-[10px] text-slate-400 italic">{t("No increments yet")}</span>
+                          <span className="text-[9px] text-slate-400 italic">{t("No increments yet")}</span>
                         ) : (
                           emp.increments.slice(0, 3).map((inc: any, idx: number) => (
-                            <span key={idx} className="px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-600 text-[10px] font-bold">
+                            <span key={idx} className="px-1.5 py-0.5 rounded-md bg-emerald-50 text-emerald-600 text-[9px] font-bold border border-emerald-100">
                               +{formatCurrency(inc.amount)}
                             </span>
                           ))
                         )}
-                        {emp.increments?.length > 3 && (
-                          <span className="text-[10px] text-slate-400">+{emp.increments.length - 3} more</span>
-                        )}
                       </div>
                     </td>
-                    <td className="p-5">
-                      <p className="text-lg font-black text-brand-600">{formatCurrency(emp.salaryStructure?.totalSalary || 0)}</p>
+                    <td className="p-4">
+                      <p className="text-sm font-black text-brand-600">{formatCurrency(emp.salaryStructure?.totalSalary || 0)}</p>
                     </td>
-                    <td className="p-5 text-right">
-                      <div className="flex items-center justify-end gap-2">
+                    <td className="p-4 text-right">
+                      <div className="flex items-center justify-end gap-1">
                         <Button
                           variant="ghost"
                           size="sm"
@@ -250,9 +246,9 @@ export default function SalaryIncrementPage() {
                             setSelectedEmployees([emp.id]);
                             setIsModalOpen(true);
                           }}
-                          className="rounded-xl hover:bg-brand-50 hover:text-brand-600 font-bold text-[10px] uppercase"
+                          className="rounded-lg h-7 px-2 hover:bg-brand-50 hover:text-brand-600 font-bold text-[9px] uppercase"
                         >
-                          <TrendingUp className="w-3 h-3 mr-1" />
+                          <TrendingUp className="w-2.5 h-2.5 mr-1" />
                           {t("Increment")}
                         </Button>
                         
@@ -261,9 +257,9 @@ export default function SalaryIncrementPage() {
                             variant="ghost"
                             size="sm"
                             onClick={() => handleDeactivate(emp.id)}
-                            className="rounded-xl hover:bg-red-50 hover:text-red-600 font-bold text-[10px] uppercase"
+                            className="rounded-lg h-7 px-2 hover:bg-red-50 hover:text-red-600 font-bold text-[9px] uppercase"
                           >
-                            <XCircle className="w-3 h-3 mr-1" />
+                            <XCircle className="w-2.5 h-2.5 mr-1" />
                             {t("Deactivate")}
                           </Button>
                         ) : (
@@ -271,9 +267,9 @@ export default function SalaryIncrementPage() {
                             variant="ghost"
                             size="sm"
                             onClick={() => handleActivate(emp.id)}
-                            className="rounded-xl hover:bg-emerald-50 hover:text-emerald-600 font-bold text-[10px] uppercase"
+                            className="rounded-lg h-7 px-2 hover:bg-emerald-50 hover:text-emerald-600 font-bold text-[9px] uppercase"
                           >
-                            <CheckCircle2 className="w-3 h-3 mr-1" />
+                            <CheckCircle2 className="w-2.5 h-2.5 mr-1" />
                             {t("Activate")}
                           </Button>
                         )}
@@ -289,24 +285,24 @@ export default function SalaryIncrementPage() {
 
       {/* Sticky Selection Bar */}
       {selectedEmployees.length > 0 && (
-        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-6 py-4 rounded-[2rem] shadow-2xl flex items-center gap-8 z-50 animate-in fade-in slide-in-from-bottom-4">
-          <div className="flex items-center gap-3 border-r border-white/10 pr-8">
-            <div className="w-10 h-10 rounded-2xl bg-brand-600 flex items-center justify-center font-black">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-xl flex items-center gap-6 z-50 animate-in fade-in slide-in-from-bottom-4 border border-white/10">
+          <div className="flex items-center gap-2.5 border-r border-white/10 pr-6">
+            <div className="w-8 h-8 rounded-xl bg-brand-600 flex items-center justify-center font-black text-sm">
               {selectedEmployees.length}
             </div>
-            <p className="text-sm font-bold tracking-tight">{t("Employees Selected")}</p>
+            <p className="text-[11px] font-bold tracking-tight text-slate-300">{t("Selected")}</p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <Button 
               onClick={() => setIsModalOpen(true)}
-              className="rounded-2xl bg-brand-600 hover:bg-brand-700 font-black h-11 px-8"
+              className="rounded-xl bg-brand-600 hover:bg-brand-700 font-black h-9 px-6 text-xs"
             >
-              {t("Apply Bulk Increment")}
+              {t("Apply Bulk")}
             </Button>
             <Button 
               variant="ghost" 
               onClick={() => setSelectedEmployees([])}
-              className="rounded-2xl hover:bg-white/10 text-white font-bold h-11"
+              className="rounded-xl hover:bg-white/10 text-white font-bold h-9 text-xs px-4"
             >
               {t("Cancel")}
             </Button>
