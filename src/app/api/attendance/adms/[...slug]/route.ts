@@ -75,7 +75,8 @@ export async function POST(
     // Handle Registration (if body contains DeviceType and table is NONE)
     if (body.includes("DeviceType=") && (!table || table === "NONE")) {
         console.log(`ADMS [${tenantSlug}] Registration from ${sn}`);
-        return new NextResponse("OK", { 
+        // Return a more complete registry response for F22
+        return new NextResponse("RegistryCode=3985793847593\r\nServerVersion=2.4.1\r\nServerName=ADMS\r\nPushVersion=2.0.335\r\nOK\r\n", { 
             headers: { "Content-Type": "text/plain" } 
         });
     }
@@ -94,6 +95,7 @@ export async function POST(
 
       let processedCount = 0;
       for (const line of lines) {
+        // ZKTeco format can be tab or space separated
         const parts = line.trim().split(/\s+/);
         if (parts.length < 2) continue;
 
@@ -101,7 +103,7 @@ export async function POST(
         let dateStr = parts[1]; 
         let timeStr = parts[2];
 
-        // Flexible date finding
+        // Flexible date finding (EVENT table might have more columns)
         if (!dateStr || !dateStr.includes("-")) {
             const potentialDate = parts.find(p => p.includes("-") && p.split("-").length === 3);
             if (potentialDate) {
@@ -113,12 +115,14 @@ export async function POST(
         
         if (!dateStr || !timeStr) continue;
 
+        // BDT Midnight (UTC+6) = 18:00 UTC previous day
         const dParts = dateStr.split("-");
         const dateOnly = new Date(Date.UTC(parseInt(dParts[0]), parseInt(dParts[1]) - 1, parseInt(dParts[2]), -6, 0, 0, 0));
         
         const punchTime = new Date(`${dateStr}T${timeStr}`);
         if (isNaN(punchTime.getTime())) continue;
 
+        // Find employee
         const numericId = parseInt(employeeCodeRaw).toString();
         const employee = await prisma.employee.findFirst({
           where: {
