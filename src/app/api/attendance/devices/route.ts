@@ -26,6 +26,16 @@ export async function POST(request: NextRequest) {
     const data = await request.json();
     const prisma = await getTenantPrisma();
 
+    // Prevent duplicate serial numbers
+    if (data.serialNumber) {
+      const existing = await prisma.attendanceDevice.findUnique({
+        where: { serialNumber: data.serialNumber }
+      });
+      if (existing) {
+        return NextResponse.json({ message: "Device with this serial number is already registered." }, { status: 400 });
+      }
+    }
+
     const device = await prisma.attendanceDevice.create({
       data: {
         deviceName: data.deviceName,
@@ -34,13 +44,14 @@ export async function POST(request: NextRequest) {
         port: parseInt(data.port) || 4370,
         description: data.description,
         apiKey: randomUUID(),
-        status: "DISCONNECTED"
+        status: "PENDING"
       }
     });
 
     return NextResponse.json(device, { status: 201 });
-  } catch (error) {
-    return NextResponse.json({ message: "Failed to create device", error }, { status: 400 });
+  } catch (error: any) {
+    console.error("POST Device Error:", error);
+    return NextResponse.json({ message: "Failed to create device", error: error.message }, { status: 400 });
   }
 }
 
@@ -62,8 +73,8 @@ export async function PUT(request: NextRequest) {
     });
 
     return NextResponse.json(device);
-  } catch (error) {
-    return NextResponse.json({ message: "Failed to update device", error }, { status: 400 });
+  } catch (error: any) {
+    return NextResponse.json({ message: "Failed to update device", error: error.message }, { status: 400 });
   }
 }
 

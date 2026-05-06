@@ -16,7 +16,8 @@ const PUBLIC_PATHS = [
   "/api/landing-page",
   "/api/debug-db",
   "/api/attendance/heartbeat",
-  "/api/attendance/sync-push"
+  "/api/attendance/sync-push",
+  "/api/attendance/adms"
 ];
 
 // Helper to check if a path exactly match or is a subpath of a prefix (e.g. /employee match /employee/1 but not /employees)
