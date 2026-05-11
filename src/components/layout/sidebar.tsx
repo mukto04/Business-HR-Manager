@@ -38,6 +38,13 @@ const sidebarGroups = [
     ]
   },
   {
+    title: "Project Management",
+    links: [
+      { href: "/projects", label: "Project Tracking", icon: ClipboardList, serviceId: "main_menu" },
+      { href: "/payments", label: "Payment Tracking", icon: Coins, serviceId: "main_menu" },
+    ]
+  },
+  {
     title: "Attendance Management",
     links: [
       { href: "/attendance", label: "Attendance Tracking", icon: Clock, serviceId: "attendance" },

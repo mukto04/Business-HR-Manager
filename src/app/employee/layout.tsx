@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -19,7 +19,12 @@ import {
   CheckCircle2,
   Check,
   Eye,
-  EyeOff
+  EyeOff,
+  ClipboardList,
+  Cake,
+  Fingerprint,
+  ShieldCheck,
+  Clock
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useNavigationStore } from "@/stores/use-navigation-store";
@@ -27,6 +32,7 @@ import { useTranslation } from "@/hooks/use-translation";
 
 const NAV_ITEMS = [
   { name: "Dashboard", href: "/employee/dashboard", icon: LayoutDashboard },
+  { name: "My Projects", href: "/employee/projects", icon: ClipboardList },
   { name: "My Profile", href: "/employee/profile", icon: User },
   { name: "My Attendance", href: "/employee/attendance", icon: CalendarDays },
   { name: "Leave Balance", href: "/employee/leaves", icon: Coffee },
@@ -49,6 +55,7 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
   const unreadCount = notifications.filter(n => !n.isRead).length;
+  const prevNotifIdsRef = useRef<Set<string>>(new Set());
   const { t } = useTranslation();
 
   const { isNavigating, setIsNavigating } = useNavigationStore();
@@ -58,15 +65,27 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
     setIsNavigating(false); // Reset navigation state when page changes
   }, [pathname, setIsNavigating]);
 
-  // Update tab title with unread count
+  // Update tab title with flashing alert when unread notifications exist
   useEffect(() => {
-    const baseTitle = document.title.replace(/^\(\d+\)\s/, "");
+    let interval: any;
+    const baseTitle = document.title.replace(/^\(\d+\)\s|🔔.*-\s/g, "");
+    
     if (unreadCount > 0) {
-      document.title = `(${unreadCount}) ${baseTitle}`;
+      let toggle = false;
+      interval = setInterval(() => {
+        document.title = toggle 
+          ? `(${unreadCount}) ${baseTitle}` 
+          : `🔔 ${t("New Alert!")} - ${baseTitle}`;
+        toggle = !toggle;
+      }, 1000);
     } else {
       document.title = baseTitle;
     }
-  }, [unreadCount]);
+    
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [unreadCount, t]);
 
   // Prevent body scroll when sidebars/modals are open
   useEffect(() => {
@@ -91,7 +110,10 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
     }
 
     fetch("/api/employee/me")
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) throw new Error("Not authenticated");
+        return res.json();
+      })
       .then(data => {
         if (data && data.name) {
           const shortName = data.name.split(" ").pop() || data.name;
@@ -102,7 +124,7 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
           sessionStorage.setItem("emp_company", data.companyName || "Portal");
         }
       })
-      .catch(err => console.error(err));
+      .catch(err => console.error("Failed to fetch employee data:", err));
 
     fetchNotifications();
 
@@ -113,6 +135,34 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
 
     return () => clearInterval(interval);
   }, []);
+
+  // Request browser notification permission
+  useEffect(() => {
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+  }, []);
+
+  // Handle browser popups when new notifications arrive
+  useEffect(() => {
+    if (notifications.length > 0) {
+      const currentIds = new Set(notifications.map(n => n.id));
+      const newNotifs = notifications.filter(n => !prevNotifIdsRef.current.has(n.id) && !n.isRead);
+      
+      if (newNotifs.length > 0) {
+        // Browser Push Notification
+        if ("Notification" in window && Notification.permission === "granted") {
+          newNotifs.forEach(n => {
+            new Notification(n.title, {
+              body: n.message || n.subtitle || "New update in your portal",
+              icon: "/favicon.png"
+            });
+          });
+        }
+      }
+      prevNotifIdsRef.current = currentIds;
+    }
+  }, [notifications]);
 
   const fetchNotifications = async () => {
     try {
@@ -424,8 +474,22 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
                       {!notification.isRead && (
                         <span className="absolute top-5 right-5 h-2 w-2 rounded-full bg-rose-500 animate-pulse" />
                       )}
-                      <div className="flex justify-between gap-4">
-                        <div className="space-y-1 pr-6">
+                      <div className="flex gap-4">
+                        <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${
+                          notification.isRead ? 'bg-slate-100 text-slate-400' :
+                          notification.type === 'PROJECT' ? 'bg-emerald-50 text-emerald-600' :
+                          notification.type === 'SALARY' ? 'bg-amber-50 text-amber-600' :
+                          notification.type === 'LEAVE' ? 'bg-sky-50 text-sky-600' :
+                          notification.type === 'ATTENDANCE' ? 'bg-indigo-50 text-indigo-600' :
+                          'bg-slate-100 text-slate-500'
+                        }`}>
+                          {notification.type === 'PROJECT' ? <ClipboardList size={18} /> :
+                           notification.type === 'SALARY' ? <Banknote size={18} /> :
+                           notification.type === 'LEAVE' ? <Coffee size={18} /> :
+                           notification.type === 'ATTENDANCE' ? <Clock size={18} /> :
+                           <Bell size={18} />}
+                        </div>
+                        <div className="flex-1 space-y-1 pr-6">
                           <h4 className={`text-sm font-bold transition-colors ${
                             notification.isRead ? 'text-slate-700' : 'text-slate-900'
                           }`}>

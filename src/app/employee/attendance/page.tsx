@@ -50,11 +50,12 @@ export default function EmployeeAttendance() {
     
     try {
       const res = await fetch(`/api/employee/attendance?month=${month}&year=${year}`);
+      if (!res.ok) throw new Error("Failed to fetch attendance");
       const data = await res.json();
       setRecords(data.records || []);
       setSummary(data.summary || null);
     } catch (err) {
-      console.error(err);
+      console.error("Failed to fetch attendance:", err);
     } finally {
       setLoading(false);
     }
@@ -63,10 +64,11 @@ export default function EmployeeAttendance() {
   const fetchRequests = async () => {
     try {
       const res = await fetch("/api/employee/attendance/requests");
+      if (!res.ok) throw new Error("Failed to fetch requests");
       const data = await res.json();
       setRequests(data || []);
     } catch (err) {
-      console.error(err);
+      console.error("Failed to fetch requests:", err);
     }
   };
 

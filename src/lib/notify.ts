@@ -15,6 +15,7 @@ export type NotificationType =
   | "LOAN"
   | "BREAK"
   | "PROFILE"
+  | "PROJECT"
   | "SYSTEM"
 ;
 

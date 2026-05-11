@@ -32,11 +32,20 @@ export default function EmployeeDashboard() {
 
   useEffect(() => {
     Promise.all([
-      fetch("/api/employee/dashboard").then(res => res.json()),
-      fetch("/api/employee/notices").then(res => res.json())
+      fetch("/api/employee/dashboard").then(res => {
+        if (!res.ok) throw new Error("Failed to fetch dashboard");
+        return res.json();
+      }),
+      fetch("/api/employee/notices").then(res => {
+        if (!res.ok) throw new Error("Failed to fetch notices");
+        return res.json();
+      })
     ]).then(([dashboardData, noticesData]) => {
       setData(dashboardData);
       setNotices(Array.isArray(noticesData) ? noticesData : []);
+      setLoading(false);
+    }).catch(err => {
+      console.error("Dashboard fetch error:", err);
       setLoading(false);
     });
   }, []);

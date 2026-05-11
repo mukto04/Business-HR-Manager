@@ -12,9 +12,16 @@ export default function EmployeeHolidaysPage() {
 
   useEffect(() => {
     fetch("/api/employee/holidays")
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) throw new Error("Failed to fetch holidays");
+        return res.json();
+      })
       .then(data => {
         setHolidays(Array.isArray(data) ? data : []);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error("Holidays fetch error:", err);
         setLoading(false);
       });
   }, []);

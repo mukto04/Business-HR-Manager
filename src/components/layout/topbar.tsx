@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Menu, Bell, Cake, CalendarRange, LogOut, Fingerprint, ShieldCheck, Eye, EyeOff, X, Check, CheckCircle2 } from "lucide-react";
+import { Menu, Bell, Cake, CalendarRange, LogOut, Fingerprint, ShieldCheck, Eye, EyeOff, X, Check, CheckCircle2, ClipboardList } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useAsyncData } from "@/modules/shared/use-async-data";
 import { useNavigationStore } from "@/stores/use-navigation-store";
@@ -451,8 +451,9 @@ export function Topbar({ onMenuClick }: { onMenuClick?: () => void }) {
                             notif.type === "BIRTHDAY" ? "bg-rose-50 text-rose-500" :
                             notif.type === "ATTENDANCE_REQUEST" ? "bg-amber-50 text-amber-500" :
                             notif.type === "SUBSCRIPTION" ? "bg-blue-50 text-blue-500" :
+                            notif.type === "PROJECT" ? "bg-emerald-50 text-emerald-500" :
                             "bg-indigo-50 text-indigo-500"
-                          }`}
+                          } shadow-sm border border-transparent`}
                           onClick={() => {
                             if (!isClickable) return;
                             setIsNavigating(true);
@@ -462,6 +463,7 @@ export function Topbar({ onMenuClick }: { onMenuClick?: () => void }) {
                             {notif.type === "BIRTHDAY" ? <Cake size={18} /> : 
                              notif.type === "ATTENDANCE_REQUEST" ? <Fingerprint size={18} /> :
                              notif.type === "SUBSCRIPTION" ? <ShieldCheck size={18} /> :
+                             notif.type === "PROJECT" ? <ClipboardList size={18} /> :
                              <CalendarRange size={18} />}
                           </div>
 

@@ -28,9 +28,16 @@ export default function EmployeeProfilePage() {
 
   useEffect(() => {
     fetch("/api/employee/me")
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) throw new Error("Failed to fetch profile");
+        return res.json();
+      })
       .then(data => {
         setEmployee(data);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error("Profile fetch error:", err);
         setLoading(false);
       });
   }, []);

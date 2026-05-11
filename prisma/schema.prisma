@@ -27,6 +27,7 @@ model Employee {
   nidNumber       String?
   educationStatus String?
   password        String            @default("appdevs123456")
+  securityPin     String?           // Secondary PIN for financial data access
   image           String?           
   customData      Json?             // { fieldName: value }
   createdAt       DateTime          @default(now())
@@ -46,6 +47,9 @@ model Employee {
   advanceRequests AdvanceSalaryRequest[]
   leaveRequests   LeaveRequest[]
   increments      SalaryIncrement[]
+  projects        ProjectMember[]
+  workLogs        ProjectWorkLog[]
+  managedProjects Project[]       @relation("ProjectManager")
   
   @@index([fingerprintId])
 }
@@ -326,6 +330,7 @@ model Tenant {
   status         String    @default("ACTIVE") // ACTIVE, FROZEN
   adminUsername  String
   adminPassword  String
+  securityPin    String?   // Secondary PIN for financial data access
   subscriptionStart DateTime?
   subscriptionEnd   DateTime?
   createdAt      DateTime  @default(now())
@@ -473,5 +478,69 @@ model SalaryIncrement {
   updatedAt       DateTime @updatedAt
   employee        Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
+  @@index([employeeId])
+}
+
+model Project {
+  id              String          @id @default(auto()) @map("_id") @db.ObjectId
+  name            String
+  type            String?         // e.g. Web, App, Marketing
+  startDate       DateTime?
+  endDate         DateTime?
+  totalAmount     Float           @default(0)
+  status          String          @default("PLANNED") // PLANNED, RUNNING, ON_HOLD, etc.
+  description     String?
+  clientSource    String?         // e.g. LinkedIn, Upwork
+  projectManagerId String?        @db.ObjectId
+  projectManager   Employee?      @relation("ProjectManager", fields: [projectManagerId], references: [id])
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  members         ProjectMember[]
+  payments        ProjectPayment[]
+  workLogs        ProjectWorkLog[]
+}
+
+model ProjectMember {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  projectId   String   @db.ObjectId
+  employeeId  String   @db.ObjectId
+  role        String   @default("Member") // Lead, Member, etc.
+  assignedAt  DateTime @default(now())
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, employeeId])
+  @@index([projectId])
+  @@index([employeeId])
+}
+
+model ProjectPayment {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  projectId   String   @db.ObjectId
+  amount      Float
+  date        DateTime @default(now())
+  method      String   @default("Bank") // Bank, Cash, etc.
+  reference   String?  // Cheque No, Transaction ID
+  note        String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+}
+
+model ProjectWorkLog {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  projectId   String   @db.ObjectId
+  employeeId  String   @db.ObjectId
+  phase       String   // RUNNING_WORK, IN_TESTING, ISSUE_FIXING, HANDOVER, CC, COMPLETE
+  hours       Float
+  date        DateTime @default(now())
+  note        String?
+  createdAt   DateTime @default(now())
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
   @@index([employeeId])
 }

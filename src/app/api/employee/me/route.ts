@@ -14,6 +14,7 @@ export async function GET() {
     const employee = await (await getTenantPrisma()).employee.findUnique({
       where: { id: employeeId },
       select: { 
+        id: true,
         name: true, 
         employeeCode: true, 
         designation: true,
